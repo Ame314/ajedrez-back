@@ -1,10 +1,21 @@
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
 from routes import users, games
 
 app = FastAPI()
+
+# Configuración de CORS
+# CORS para permitir peticiones desde tu frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Cambia si usas otro puerto
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Conexión a Mongo
 @app.on_event("startup")
