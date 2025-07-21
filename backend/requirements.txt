@@ -3,3 +3,5 @@ uvicorn
 motor
 httpx
 pydantic[email]
+python-jose[cryptography]
+passlib[bcrypt]  # también necesario si usas hashing

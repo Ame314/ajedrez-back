@@ -1,3 +1,6 @@
+# backend/main.py
+# Este es el punto de entrada de tu aplicación FastAPI
+# Aquí se configuran las rutas, la conexión a la base de datos y CORS
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,13 +12,15 @@ app = FastAPI()
 
 # Configuración de CORS
 # CORS para permitir peticiones desde tu frontend
+# Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Cambia si usas otro puerto
+    allow_origins=["*"],  # <-- PERMITE CUALQUIER ORIGEN 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Conexión a Mongo
 @app.on_event("startup")

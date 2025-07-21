@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Request
+## /backend/routes/users.py
+from fastapi import APIRouter, Request, HTTPException
 from models.user import User
 from models.login import LoginRequest
+from utils.auth import hash_password, verify_password, create_access_token
+from datetime import timedelta
 
 router = APIRouter()
 
@@ -8,36 +11,35 @@ router = APIRouter()
 async def create_user(user: User, request: Request):
     db = request.app.state.db
 
-    # Verifica si ya existe el email
-    existing_email = await db.users.find_one({"email": user.email})
-    if existing_email:
-        return {"mensaje": "Ya existe un usuario con este correo electrónico"}
+    # Validaciones previas
+    if await db.users.find_one({"email": user.email}):
+        raise HTTPException(status_code=400, detail="Correo ya registrado")
+    if await db.users.find_one({"username": user.username}):
+        raise HTTPException(status_code=400, detail="Nombre de usuario en uso")
 
-    # Verifica si ya existe el username
-    existing_username = await db.users.find_one({"username": user.username})
-    if existing_username:
-        return {"mensaje": "Nombre de usuario ya está en uso"}
+    # Hashear contraseña
+    user_dict = user.dict()
+    user_dict["password"] = hash_password(user.password)
 
-    # Insertar nuevo usuario
-    result = await db.users.insert_one(user.dict())
-    return {
-        "mensaje": "Usuario registrado correctamente",
-        "id": str(result.inserted_id)
-    }
+    result = await db.users.insert_one(user_dict)
+    return {"mensaje": "Usuario registrado", "id": str(result.inserted_id)}
 
 @router.post("/login")
 async def login_user(login: LoginRequest, request: Request):
     db = request.app.state.db
     user = await db.users.find_one({"email": login.email})
 
-    if not user:
-        return {"mensaje": "Usuario no encontrado"}
+    if not user or not verify_password(login.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
-    if user["password"] != login.password:
-        return {"mensaje": "Contraseña incorrecta"}
+    token = create_access_token({
+        "username": user["username"],
+        "email": user["email"],
+        "role": user.get("role", "user")
+    })
 
     return {
         "mensaje": "Login exitoso",
-        "user_id": str(user["_id"]),
-        "username": user["username"]
+        "access_token": token,
+        "token_type": "bearer"
     }

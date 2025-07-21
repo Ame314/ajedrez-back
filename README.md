@@ -54,3 +54,10 @@ POST /login → Inicia sesión
 POST /guardar-partida → Guarda partida
 
 GET /partidas/{username} → Devuelve partidas del jugador (si es user o opponent)
+
+Arquitectura del proyecto
+
+/backend
+
+Librerías que vamos a usar:
+pip install python-jose[cryptography] passlib[bcrypt] python-multipart
