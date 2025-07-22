@@ -66,14 +66,26 @@ async def perfil_usuario(username: str, request: Request):
 
     return {
         "username": username,
+        "rol": usuario.get("role"),
         "elo": usuario.get("elo"),
-        "total_partidas": total_partidas,
-        "victorias": victorias,
-        "derrotas": derrotas,
-        "tablas": tablas,
-        "historial": [{
-            "id": str(p["_id"]),
-            "vs": p["black_player"] if p["white_player"] == username else p["white_player"],
-            "resultado": p.get("result", "desconocido")
-        } for p in partidas]
+
+        "partidas": {
+            "total": total_partidas,
+            "victorias": victorias,
+            "derrotas": derrotas,
+            "tablas": tablas,
+            "historial": [{
+                "id": str(p["_id"]),
+                "vs": p["black_player"] if p["white_player"] == username else p["white_player"],
+                "resultado": p.get("result", "desconocido")
+            } for p in partidas]
+        },
+
+        "puzzles": {
+            "resueltos_correctamente": usuario.get("puzzles_resueltos_correctamente", 0),
+            "resueltos_incorrectamente": usuario.get("puzzles_resueltos_incorrectamente", 0),
+            "historial": usuario.get("historial_puzzles", [])
+        },
+
+        "lecciones_vistas": usuario.get("lecciones_vistas", [])
     }

@@ -61,3 +61,6 @@ Arquitectura del proyecto
 
 Librerías que vamos a usar:
 pip install python-jose[cryptography] passlib[bcrypt] python-multipart
+
+por cierto, para alguien que quiera ejecutar el proyecto tiene que descargar los ejercicios de aca: https://database.lichess.org/#evals
+por dios, no meter todo eso a la bdd de docker que se cae el servicio, para hacerlo se ejecutan los scrips que están en /backend/utils/cargar_lecciones.py. con eso vas a cargar solo 1000 líneas, la idea es cargar más pero no demasiado que se cae el contenedor ya que el archivo pesa como 24GB, para ls puzzles es igual en la ruta: /backend/utils/cargar_puzzles.py pero aca si carga todo que solo son 2GB y algo ese si está en el proyecto 
