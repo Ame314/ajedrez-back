@@ -71,5 +71,9 @@ async def perfil_usuario(username: str, request: Request):
         "victorias": victorias,
         "derrotas": derrotas,
         "tablas": tablas,
-        "historial": [{ "id": str(p["_id"]), "vs": p["black_player"] if p["white_player"] == username else p["white_player"], "resultado": p["result"] } for p in partidas]
+        "historial": [{
+            "id": str(p["_id"]),
+            "vs": p["black_player"] if p["white_player"] == username else p["white_player"],
+            "resultado": p.get("result", "desconocido")
+        } for p in partidas]
     }

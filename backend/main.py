@@ -1,4 +1,3 @@
-# backend/main.py
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +21,22 @@ app.add_middleware(
 async def startup_db_client():
     client = AsyncIOMotorClient("mongodb://mongo:27017")
     app.state.db = client.ajedrez_db
+
+    # Asignar dificultad automáticamente a puzzles sin asignar
+    puzzles = app.state.db.puzzles.find({"difficulty": {"$exists": False}})
+    async for puzzle in puzzles:
+        rating = puzzle.get("Rating", 800)
+        if rating < 1200:
+            dificultad = "easy"
+        elif rating <= 1800:
+            dificultad = "medium"
+        else:
+            dificultad = "hard"
+
+        await app.state.db.puzzles.update_one(
+            {"_id": puzzle["_id"]},
+            {"$set": {"difficulty": dificultad}}
+        )
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
