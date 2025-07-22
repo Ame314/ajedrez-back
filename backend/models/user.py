@@ -1,10 +1,14 @@
-# backend/models/user.py
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr
 from typing import Literal
 
 class User(BaseModel):
-    username: str = Field(..., min_length=3, max_length=30)
+    username: str
     email: EmailStr
-    password: str = Field(..., min_length=6)
-    role: Literal["admin", "user"] = "user"
-    elo: int = Field(..., ge=1200)  # mínimo 1200
+    password: str  # hashed
+    role: Literal["user", "profesor", "admin"] = "user"
+    elo: int = 1200
+
+    games_played: int = 0
+    games_won: int = 0
+    games_lost: int = 0
+    games_drawn: int = 0

@@ -1,32 +1,27 @@
 # backend/main.py
-# Este es el punto de entrada de tu aplicación FastAPI
-# Aquí se configuran las rutas, la conexión a la base de datos y CORS
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
-from routes import users, games
+from routes import users, games, puzzles, lessons_eval
 
 app = FastAPI()
 
 # Configuración de CORS
-# CORS para permitir peticiones desde tu frontend
-# Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # <-- PERMITE CUALQUIER ORIGEN 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# Conexión a Mongo
+# Conexión a MongoDB local
 @app.on_event("startup")
 async def startup_db_client():
     client = AsyncIOMotorClient("mongodb://mongo:27017")
-    app.state.db = client.ajedrez_db  # Esto es lo importante
+    app.state.db = client.ajedrez_db
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
@@ -49,3 +44,5 @@ async def get_lichess_exercises():
 # Montar routers
 app.include_router(users.router)
 app.include_router(games.router)
+app.include_router(puzzles.router)
+app.include_router(lessons_eval.router)

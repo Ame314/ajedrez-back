@@ -43,3 +43,33 @@ async def login_user(login: LoginRequest, request: Request):
         "access_token": token,
         "token_type": "bearer"
     }
+
+@router.get("/perfil/{username}")
+async def perfil_usuario(username: str, request: Request):
+    db = request.app.state.db
+
+    usuario = await db.users.find_one({"username": username})
+    if not usuario:
+        return {"error": "Usuario no encontrado"}
+
+    partidas = await db.games.find({
+        "$or": [
+            {"white_player": username},
+            {"black_player": username}
+        ]
+    }).to_list(None)
+
+    total_partidas = len(partidas)
+    victorias = sum(1 for p in partidas if p.get("winner") == username)
+    derrotas = sum(1 for p in partidas if p.get("winner") and p.get("winner") != username and p.get("winner") != "draw")
+    tablas = sum(1 for p in partidas if p.get("winner") == "draw")
+
+    return {
+        "username": username,
+        "elo": usuario.get("elo"),
+        "total_partidas": total_partidas,
+        "victorias": victorias,
+        "derrotas": derrotas,
+        "tablas": tablas,
+        "historial": [{ "id": str(p["_id"]), "vs": p["black_player"] if p["white_player"] == username else p["white_player"], "resultado": p["result"] } for p in partidas]
+    }

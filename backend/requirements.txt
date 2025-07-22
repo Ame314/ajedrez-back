@@ -1,4 +1,7 @@
 fastapi
+zstandard
+pymongo
+pandas
 uvicorn
 motor
 httpx
