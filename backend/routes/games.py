@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Request
 from models.game import Game
+from models.live_game import LiveGame, Move
 from datetime import datetime
+from utils.websocket_manager import manager
 
 router = APIRouter()
 
@@ -79,3 +81,78 @@ async def obtener_partidas(request: Request, username: str):
         "$or": [{"white_player": username}, {"black_player": username}]
     }).to_list(None)
     return [{**p, "_id": str(p["_id"])} for p in partidas]
+
+@router.post("/finalizar-partida-vivo")
+async def finalizar_partida_vivo(request: Request, game_id: str):
+    """Finaliza una partida en vivo y la guarda en la base de datos"""
+    db = request.app.state.db
+    
+    if game_id not in manager.active_games:
+        return {"error": "Partida no encontrada"}
+    
+    live_game = manager.active_games[game_id]
+    
+    # Crear objeto Game para guardar
+    game_data = {
+        "white_player": live_game["white_player"],
+        "black_player": live_game["black_player"],
+        "white_elo": live_game["white_elo"],
+        "black_elo": live_game["black_elo"],
+        "moves": [move["san"] for move in live_game["moves"]],  # Solo notación SAN
+        "result_code": live_game["result"],
+        "winner": live_game["winner"] or "draw",
+        "date_played": live_game["created_at"]
+    }
+    
+    # Calcular resultado numérico para blancos
+    resultado_blancos = {"1-0": 1.0, "0-1": 0.0, "1/2-1/2": 0.5}.get(live_game["result"], 0.5)
+    
+    # Calcular nuevos ELO
+    white_elo = live_game["white_elo"]
+    black_elo = live_game["black_elo"]
+    
+    nuevo_elo_blancos = calcular_nuevo_elo(white_elo, black_elo, resultado_blancos)
+    nuevo_elo_negras = calcular_nuevo_elo(black_elo, white_elo, 1 - resultado_blancos)
+    
+    # Guardar partida en la base de datos
+    result = await db.games.insert_one(game_data)
+    
+    # Actualizar estadísticas de usuarios
+    white_player = live_game["white_player"]
+    black_player = live_game["black_player"]
+    
+    await db.users.update_one(
+        {"username": white_player},
+        {"$set": {"elo": nuevo_elo_blancos},
+         "$inc": {
+             "games_played": 1,
+             "games_won": 1 if live_game["result"] == "1-0" else 0,
+             "games_lost": 1 if live_game["result"] == "0-1" else 0,
+             "games_drawn": 1 if live_game["result"] == "1/2-1/2" else 0
+         }}
+    )
+
+    await db.users.update_one(
+        {"username": black_player},
+        {"$set": {"elo": nuevo_elo_negras},
+         "$inc": {
+             "games_played": 1,
+             "games_won": 1 if live_game["result"] == "0-1" else 0,
+             "games_lost": 1 if live_game["result"] == "1-0" else 0,
+             "games_drawn": 1 if live_game["result"] == "1/2-1/2" else 0
+         }}
+    )
+    
+    # Remover partida de partidas activas
+    del manager.active_games[game_id]
+    if white_player in manager.user_to_game:
+        del manager.user_to_game[white_player]
+    if black_player in manager.user_to_game:
+        del manager.user_to_game[black_player]
+    
+    return {
+        "mensaje": "Partida finalizada y guardada",
+        "id": str(result.inserted_id),
+        "nuevo_elo_blancos": nuevo_elo_blancos,
+        "nuevo_elo_negras": nuevo_elo_negras
+    }
