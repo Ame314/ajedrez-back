@@ -25,3 +25,10 @@ class User(BaseModel):
     # Campos adicionales según el rol
     aulas: List[str] = []  # Si es profesor, IDs o nombres de sus aulas
     solicitudes_aula: List[str] = []  # Alumnos solicitantes, si es profesor
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str

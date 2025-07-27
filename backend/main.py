@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
+from config import MONGODB_URL, DATABASE_NAME
 
 from routes import users, games, puzzles, lessons_eval, websockets
 
@@ -21,8 +22,8 @@ app.add_middleware(
 # Conexión a MongoDB local
 @app.on_event("startup")
 async def startup_db_client():
-    client = AsyncIOMotorClient("mongodb://mongo:27017")
-    app.state.db = client.ajedrez_db
+    client = AsyncIOMotorClient(MONGODB_URL)
+    app.state.db = client[DATABASE_NAME]
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
