@@ -20,11 +20,8 @@ class User(BaseModel):
     historial_puzzles: List[Dict] = []
 
     # Lecciones vistas o asignadas
-    lecciones_vistas: List[str] = []  # IDs o títulos de las lecciones
-
-    # Campos adicionales según el rol
-    aulas: List[str] = []  # Si es profesor, IDs o nombres de sus aulas
-    solicitudes_aula: List[str] = []  # Alumnos solicitantes, si es profesor
+    aulas: List[str] = []  # IDs de aulas en las que participa
+    progreso_lecciones: List[str] = []  # Lecciones completadas
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
