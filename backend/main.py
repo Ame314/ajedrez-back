@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from config import MONGODB_URL, DATABASE_NAME
 
-from routes import users, games, puzzles, lessons_eval, websockets
+from routes import users, games, puzzles, lessons_eval, websockets, analysis
 
 app = FastAPI()
 
@@ -50,3 +50,4 @@ app.include_router(games.router)
 app.include_router(puzzles.router)
 app.include_router(lessons_eval.router)
 app.include_router(websockets.router)
+app.include_router(analysis.router, prefix="/api")

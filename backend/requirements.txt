@@ -12,3 +12,6 @@ passlib[bcrypt]  # también necesario si usas hashing
 python-multipart
 email-validator
 python-dotenv
+python-chess
+stockfish
+
