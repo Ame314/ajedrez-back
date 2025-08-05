@@ -6,6 +6,12 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   backend:
     build: ./backend
@@ -15,7 +21,13 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017
+      - DATABASE_NAME=ajedrez_db
+      - FRONTEND_URL=http://localhost:5173
+    restart: unless-stopped
 
 volumes:
   mongo_data:
