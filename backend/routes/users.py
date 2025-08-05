@@ -663,3 +663,199 @@ async def obtener_progreso_lecciones(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error obteniendo progreso: {str(e)}")
+
+
+# Endpoints administrativos para lecciones (solo profesores)
+@router.post("/admin/lecciones")
+async def crear_leccion(
+    leccion_data: dict,
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Crea una nueva lección (solo profesores)
+    """
+    try:
+        # Verificar que el usuario sea profesor
+        if current_user.get("role") != "profesor":
+            raise HTTPException(status_code=403, detail="Solo los profesores pueden crear lecciones")
+        
+        db = request.app.state.db
+        
+        # Validar datos requeridos
+        required_fields = ["titulo", "descripcion", "contenido", "dificultad", "orden"]
+        for field in required_fields:
+            if not leccion_data.get(field):
+                raise HTTPException(status_code=400, detail=f"El campo {field} es requerido")
+        
+        # Preparar datos de la lección
+        nueva_leccion = {
+            "titulo": leccion_data["titulo"],
+            "descripcion": leccion_data["descripcion"],
+            "contenido": leccion_data["contenido"],
+            "dificultad": leccion_data["dificultad"],
+            "orden": int(leccion_data["orden"]),
+            "quiz": leccion_data.get("quiz", []),
+            "fecha_creacion": datetime.now().isoformat(),
+            "creador": current_user["id"]
+        }
+        
+        # Insertar en la base de datos
+        result = await db.lecciones.insert_one(nueva_leccion)
+        
+        return {
+            "mensaje": "Lección creada exitosamente",
+            "id": str(result.inserted_id)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creando lección: {str(e)}")
+
+
+@router.put("/admin/lecciones/{leccion_id}")
+async def actualizar_leccion(
+    leccion_id: str,
+    leccion_data: dict,
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Actualiza una lección existente (solo profesores)
+    """
+    try:
+        # Verificar que el usuario sea profesor
+        if current_user.get("role") != "profesor":
+            raise HTTPException(status_code=403, detail="Solo los profesores pueden editar lecciones")
+        
+        db = request.app.state.db
+        
+        # Verificar que la lección existe
+        leccion = await db.lecciones.find_one({"_id": ObjectId(leccion_id)})
+        if not leccion:
+            raise HTTPException(status_code=404, detail="Lección no encontrada")
+        
+        # Preparar datos actualizados
+        datos_actualizados = {
+            "titulo": leccion_data.get("titulo", leccion["titulo"]),
+            "descripcion": leccion_data.get("descripcion", leccion["descripcion"]),
+            "contenido": leccion_data.get("contenido", leccion["contenido"]),
+            "dificultad": leccion_data.get("dificultad", leccion["dificultad"]),
+            "orden": int(leccion_data.get("orden", leccion["orden"])),
+            "quiz": leccion_data.get("quiz", leccion.get("quiz", [])),
+            "fecha_modificacion": datetime.now().isoformat(),
+            "modificador": current_user["id"]
+        }
+        
+        # Actualizar en la base de datos
+        await db.lecciones.update_one(
+            {"_id": ObjectId(leccion_id)},
+            {"$set": datos_actualizados}
+        )
+        
+        return {
+            "mensaje": "Lección actualizada exitosamente",
+            "id": leccion_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error actualizando lección: {str(e)}")
+
+
+@router.delete("/admin/lecciones/{leccion_id}")
+async def eliminar_leccion(
+    leccion_id: str,
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Elimina una lección (solo profesores)
+    """
+    try:
+        # Verificar que el usuario sea profesor
+        if current_user.get("role") != "profesor":
+            raise HTTPException(status_code=403, detail="Solo los profesores pueden eliminar lecciones")
+        
+        db = request.app.state.db
+        
+        # Verificar que la lección existe
+        leccion = await db.lecciones.find_one({"_id": ObjectId(leccion_id)})
+        if not leccion:
+            raise HTTPException(status_code=404, detail="Lección no encontrada")
+        
+        # Eliminar la lección
+        await db.lecciones.delete_one({"_id": ObjectId(leccion_id)})
+        
+        # También eliminar el progreso de esta lección de todos los usuarios
+        await db.users.update_many(
+            {},
+            {"$pull": {"progreso_lecciones": {"leccion_id": leccion_id}}}
+        )
+        
+        return {
+            "mensaje": "Lección eliminada exitosamente",
+            "id": leccion_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error eliminando lección: {str(e)}")
+
+
+@router.get("/admin/lecciones")
+async def listar_lecciones_admin(
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Lista todas las lecciones para administración (solo profesores)
+    """
+    try:
+        # Verificar que el usuario sea profesor
+        if current_user.get("role") != "profesor":
+            raise HTTPException(status_code=403, detail="Solo los profesores pueden gestionar lecciones")
+        
+        db = request.app.state.db
+        
+        # Obtener todas las lecciones ordenadas por orden
+        lecciones = []
+        async for leccion in db.lecciones.find({}).sort("orden", 1):
+            leccion["_id"] = str(leccion["_id"])
+            # Asegurar campos para lecciones antiguas
+            if "fecha_creacion" not in leccion:
+                leccion["fecha_creacion"] = "2024-01-01T00:00:00"
+            if "creador" not in leccion:
+                leccion["creador"] = "sistema"
+            lecciones.append(leccion)
+        
+        return {"lecciones": lecciones}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error obteniendo lecciones: {str(e)}")
+
+
+@router.get("/lecciones/{leccion_id}")
+async def obtener_leccion_individual(
+    leccion_id: str,
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Obtiene una lección específica por ID
+    """
+    try:
+        db = request.app.state.db
+        
+        # Buscar la lección por ID
+        leccion = await db.lecciones.find_one({"_id": ObjectId(leccion_id)})
+        
+        if not leccion:
+            raise HTTPException(status_code=404, detail="Lección no encontrada")
+        
+        # Convertir ObjectId a string
+        leccion["_id"] = str(leccion["_id"])
+        
+        return leccion
+        
+    except Exception as e:
+        if "invalid ObjectId" in str(e):
+            raise HTTPException(status_code=400, detail="ID de lección inválido")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo lección: {str(e)}")
