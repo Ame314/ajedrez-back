@@ -513,3 +513,152 @@ async def crear_profesor_temporal(request: Request):
             "password": "profesor123"
         }
     }
+
+# Endpoints para lecciones
+@router.get("/lecciones")
+async def obtener_lecciones(
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Obtiene todas las lecciones disponibles para el usuario
+    """
+    try:
+        db = request.app.state.db
+        
+        # Obtener todas las lecciones de la base de datos
+        lecciones = []
+        async for leccion in db.lecciones.find({}):
+            leccion["_id"] = str(leccion["_id"])
+            lecciones.append(leccion)
+        
+        # Si no hay lecciones en BD, devolver lecciones por defecto
+        if not lecciones:
+            lecciones_default = [
+                {
+                    "_id": "1",
+                    "id": 1,
+                    "titulo": "Introducción al Ajedrez",
+                    "descripcion": "Aprende los fundamentos básicos del ajedrez",
+                    "contenido": "El ajedrez es un juego de estrategia que se juega en un tablero de 8x8 casillas...",
+                    "quiz": [
+                        {
+                            "pregunta": "¿Cuántas casillas tiene un tablero de ajedrez?",
+                            "opciones": ["32", "64", "48", "56"],
+                            "respuesta_correcta": 1
+                        }
+                    ],
+                    "dificultad": "Principiante",
+                    "orden": 1
+                },
+                {
+                    "_id": "2", 
+                    "id": 2,
+                    "titulo": "Movimiento de las Piezas",
+                    "descripcion": "Aprende cómo se mueve cada pieza",
+                    "contenido": "Cada pieza en el ajedrez tiene su propio patrón de movimiento único...",
+                    "quiz": [
+                        {
+                            "pregunta": "¿Cuál es la única pieza que puede saltar sobre otras?",
+                            "opciones": ["Rey", "Caballo", "Alfil", "Torre"],
+                            "respuesta_correcta": 1
+                        }
+                    ],
+                    "dificultad": "Principiante",
+                    "orden": 2
+                }
+            ]
+            return {"lecciones": lecciones_default}
+        
+        return {"lecciones": lecciones}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error obteniendo lecciones: {str(e)}")
+
+
+@router.post("/lecciones/completar")
+async def completar_leccion(
+    leccion_data: dict,
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Marca una lección como completada para el usuario actual
+    """
+    try:
+        db = request.app.state.db
+        
+        leccion_id = leccion_data.get("leccion_id")
+        puntuacion = leccion_data.get("puntuacion", 0)
+        
+        if not leccion_id:
+            raise HTTPException(status_code=400, detail="leccion_id es requerido")
+        
+        # Obtener el usuario actual
+        usuario = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        # Verificar si ya completó esta lección
+        progreso_lecciones = usuario.get("progreso_lecciones", [])
+        leccion_existente = None
+        
+        for i, progreso in enumerate(progreso_lecciones):
+            if progreso.get("leccion_id") == str(leccion_id):
+                leccion_existente = i
+                break
+        
+        nuevo_progreso = {
+            "leccion_id": str(leccion_id),
+            "completada": True,
+            "puntuacion": puntuacion,
+            "fecha_completada": datetime.now().isoformat()
+        }
+        
+        # Si ya existe, actualizar; si no, agregar
+        if leccion_existente is not None:
+            progreso_lecciones[leccion_existente] = nuevo_progreso
+        else:
+            progreso_lecciones.append(nuevo_progreso)
+        
+        # Actualizar en la base de datos
+        await db.users.update_one(
+            {"_id": ObjectId(current_user["id"])},
+            {
+                "$set": {
+                    "progreso_lecciones": progreso_lecciones
+                }
+            }
+        )
+        
+        return {
+            "mensaje": "Lección completada exitosamente",
+            "leccion_id": leccion_id,
+            "puntuacion": puntuacion
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error completando lección: {str(e)}")
+
+
+@router.get("/progreso-lecciones")
+async def obtener_progreso_lecciones(
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    """
+    Obtiene el progreso de lecciones del usuario actual
+    """
+    try:
+        db = request.app.state.db
+        
+        usuario = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        progreso_lecciones = usuario.get("progreso_lecciones", [])
+        
+        return {"progreso_lecciones": progreso_lecciones}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error obteniendo progreso: {str(e)}")
