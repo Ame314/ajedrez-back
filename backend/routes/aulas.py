@@ -3,7 +3,7 @@ from bson import ObjectId
 from models.aula import Aula
 from models.user import User
 from models.leccion import Leccion
-from auth import get_current_user  # Asegúrate de tener esta función
+from dependencies import get_current_user  # Corregir importación
 
 router = APIRouter()
 

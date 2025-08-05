@@ -1,15 +1,19 @@
 from fastapi import APIRouter, HTTPException, Request, Body
 from bson import ObjectId
-from utils.stockfish_analysis import analizar_movimientos, convertir_a_uci
-from stockfish import Stockfish
+from utils.stockfish_analysis import analizar_movimientos, convertir_a_uci, init_stockfish
 
-stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=15)
+# Inicializar Stockfish de forma segura
+stockfish = init_stockfish()
 
 router = APIRouter()
 
 
 @router.get("/analisis/{partida_id}")
 async def analizar_partida(partida_id: str, request: Request):
+    # Verificar que Stockfish esté disponible
+    if stockfish is None:
+        raise HTTPException(status_code=503, detail="Motor de análisis no disponible. Stockfish no está instalado.")
+    
     db = request.app.state.db
 
     partida = None

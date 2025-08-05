@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from utils.websocket_manager import manager
 from utils.auth import decode_token
 import json
+import random
 
 router = APIRouter()
 security = HTTPBearer()
@@ -25,6 +26,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
         return
     
     await manager.connect(websocket, username)
+    print(f"WebSocket conectado para usuario: {username}")
     
     try:
         while True:
@@ -33,6 +35,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
             message = json.loads(data)
             
             message_type = message.get("type")
+            print(f"Mensaje recibido de {username}: {message_type}")
             
             if message_type == "find_match":
                 # Buscar partida
@@ -49,15 +52,48 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                 
             elif message_type == "move":
                 # Realizar movimiento
-                game_id = message.get("game_id")
-                move_data = message.get("move")
+                # Obtener game_id desde el usuario actual
+                game_id = manager.user_to_game.get(username)
+                move_data = {
+                    "from": message.get("from"),
+                    "to": message.get("to"),
+                    "promotion": message.get("promotion"),
+                    "san": message.get("san"),
+                    "fen": message.get("fen")
+                }
                 
-                if game_id and move_data:
-                    await manager.handle_move(game_id, move_data, username)
+                print(f"Movimiento recibido de {username}: game_id={game_id}, move={move_data}")
+                
+                if game_id and move_data.get("from") and move_data.get("to"):
+                    success = await manager.handle_move(game_id, move_data, username)
+                    if not success:
+                        print(f"Error procesando movimiento para {username}")
+                        await manager.send_personal_message({
+                            "type": "error",
+                            "message": "Error procesando movimiento"
+                        }, username)
+                else:
+                    print(f"Datos de movimiento incompletos: game_id={game_id}, move_data={move_data}")
+                    await manager.send_personal_message({
+                        "type": "error",
+                        "message": "Datos de movimiento incompletos"
+                    }, username)
+                
+            elif message_type == "resign":
+                # Resign game
+                game_id = manager.user_to_game.get(username)
+                if game_id:
+                    await manager.handle_game_action(game_id, "resign", username)
+                    
+            elif message_type == "draw_offer":
+                # Offer draw
+                game_id = manager.user_to_game.get(username)
+                if game_id:
+                    await manager.handle_game_action(game_id, "draw_offer", username)
                 
             elif message_type == "game_action":
                 # Acciones del juego (resignar, ofrecer tablas, etc.)
-                game_id = message.get("game_id")
+                game_id = manager.user_to_game.get(username)
                 action = message.get("action")
                 
                 if game_id and action:
@@ -69,11 +105,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                 chat_message = message.get("message")
                 
                 if game_id and chat_message:
-                    await manager.send_game_message({
-                        "type": "chat",
-                        "player": username,
-                        "message": chat_message
-                    }, game_id)
+                    await manager.handle_chat_message(game_id, chat_message, username)
                 
             elif message_type == "ping":
                 # Ping para mantener conexión
@@ -82,10 +114,11 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                 }, username)
                 
     except WebSocketDisconnect:
-        manager.disconnect(username)
+        print(f"WebSocket desconectado para usuario: {username}")
+        await manager.disconnect(username)
     except Exception as e:
         print(f"Error en WebSocket para {username}: {e}")
-        manager.disconnect(username)
+        await manager.disconnect(username)
 
 @router.get("/active-games")
 async def get_active_games(request: Request):
