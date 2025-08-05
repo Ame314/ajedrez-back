@@ -18,8 +18,9 @@ async def create_user(user: User, request: Request):
     if await db.users.find_one({"username": user.username}):
         raise HTTPException(status_code=400, detail="Nombre de usuario en uso")
 
-    # Hashear contraseña
+    # Forzar rol a "user" - solo estudiantes pueden registrarse
     user_dict = user.dict()
+    user_dict["role"] = "user"  # Forzamos el rol a usuario siempre
     user_dict["password"] = hash_password(user.password)
 
     result = await db.users.insert_one(user_dict)

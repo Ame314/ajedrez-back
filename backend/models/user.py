@@ -5,7 +5,7 @@ class User(BaseModel):
     username: str
     email: EmailStr
     password: str  # hashed
-    role: Literal["user", "profesor", "admin"] = "user"
+    role: Literal["user", "profesor"] = "user"  # Solo user y profesor (profesor es admin también)
     elo: int = 1200
 
     # Estadísticas generales
