@@ -4,7 +4,7 @@ from models.user import User, PasswordResetRequest, PasswordResetConfirm
 from models.login import LoginRequest
 from utils.auth import hash_password, verify_password, create_access_token
 from utils.smtp import generate_reset_token, send_reset_email, create_reset_record, verify_reset_token, mark_token_as_used
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 router = APIRouter()
 
@@ -152,3 +152,130 @@ async def reset_password(reset_confirm: PasswordResetConfirm, request: Request):
     await mark_token_as_used(db, reset_confirm.token)
     
     return {"mensaje": "Contraseña actualizada correctamente"}
+
+@router.get("/estadisticas/{username}")
+async def obtener_estadisticas_usuario(username: str, request: Request):
+    db = request.app.state.db
+    
+    # Buscar usuario
+    usuario = await db.users.find_one({"username": username})
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Obtener todas las partidas del usuario
+    partidas = await db.games.find({
+        "$or": [
+            {"white_player": username},
+            {"black_player": username}
+        ]
+    }).to_list(None)
+    
+    # Calcular estadísticas de partidas
+    total_partidas = len(partidas)
+    victorias = sum(1 for p in partidas if p.get("winner") == username)
+    derrotas = sum(1 for p in partidas if p.get("winner") and p.get("winner") != username and p.get("winner") != "draw")
+    tablas = sum(1 for p in partidas if p.get("winner") == "draw")
+    winrate = round((victorias / total_partidas * 100), 1) if total_partidas > 0 else 0
+    
+    # Calcular tiempo total jugado (estimación basada en partidas)
+    tiempo_estimado_minutos = total_partidas * 15  # Estimamos 15 min por partida
+    horas = tiempo_estimado_minutos // 60
+    minutos = tiempo_estimado_minutos % 60
+    tiempo_total = f"{horas}h {minutos}m"
+    
+    # Obtener puzzles resueltos
+    puzzles_correctos = usuario.get("puzzles_resueltos_correctamente", 0)
+    puzzles_incorrectos = usuario.get("puzzles_resueltos_incorrectamente", 0)
+    total_puzzles = puzzles_correctos + puzzles_incorrectos
+    
+    # Calcular logros
+    logros = []
+    
+    # Primera partida
+    logros.append({
+        "name": "Primera Partida",
+        "description": "Juega tu primera partida",
+        "earned": total_partidas > 0
+    })
+    
+    # Puzzle Master
+    logros.append({
+        "name": "Puzzle Master", 
+        "description": "Resuelve 10 puzzles",
+        "earned": puzzles_correctos >= 10
+    })
+    
+    # Estratega
+    logros.append({
+        "name": "Estratega",
+        "description": "Gana 5 partidas consecutivas", 
+        "earned": victorias >= 5
+    })
+    
+    # Veterano
+    logros.append({
+        "name": "Veterano",
+        "description": "Juega 50 partidas",
+        "earned": total_partidas >= 50
+    })
+    
+    # Maestro de Puzzles
+    logros.append({
+        "name": "Maestro de Puzzles",
+        "description": "Resuelve 100 puzzles correctamente",
+        "earned": puzzles_correctos >= 100
+    })
+    
+    # Invencible
+    logros.append({
+        "name": "Invencible",
+        "description": "Gana 20 partidas",
+        "earned": victorias >= 20
+    })
+    
+    # Obtener historial reciente de rating (últimas 10 partidas)
+    partidas_recientes = sorted(partidas, key=lambda x: x.get("timestamp", 0), reverse=True)[:10]
+    historial_rating = []
+    elo_actual = usuario.get("elo", 1200)
+    
+    for i, partida in enumerate(reversed(partidas_recientes)):
+        # Simular cambios de ELO basado en resultados
+        if partida.get("winner") == username:
+            cambio = 25
+        elif partida.get("winner") == "draw":
+            cambio = 0
+        else:
+            cambio = -25
+            
+        elo_en_partida = elo_actual - (cambio * i)
+        historial_rating.append({
+            "partida": len(partidas_recientes) - i,
+            "elo": max(800, elo_en_partida)  # ELO mínimo de 800
+        })
+    
+    return {
+        "usuario": {
+            "username": username,
+            "elo": elo_actual,
+            "rol": usuario.get("role", "user")
+        },
+        "estadisticas": {
+            "partidas_jugadas": total_partidas,
+            "victorias": victorias,
+            "derrotas": derrotas,
+            "tablas": tablas,
+            "winrate": winrate,
+            "puzzles_resueltos": puzzles_correctos,
+            "puzzles_totales": total_puzzles,
+            "tiempo_total": tiempo_total
+        },
+        "logros": logros,
+        "historial_rating": historial_rating,
+        "partidas_recientes": [{
+            "id": str(p["_id"]),
+            "oponente": p["black_player"] if p["white_player"] == username else p["white_player"],
+            "resultado": "Victoria" if p.get("winner") == username else "Derrota" if p.get("winner") and p.get("winner") != "draw" else "Tablas",
+            "color": "Blancas" if p["white_player"] == username else "Negras",
+            "fecha": p.get("timestamp", "")
+        } for p in partidas_recientes[:5]]
+    }
