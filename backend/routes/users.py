@@ -1,9 +1,11 @@
 ## /backend/routes/users.py
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from models.user import User, PasswordResetRequest, PasswordResetConfirm
 from models.login import LoginRequest
 from utils.auth import hash_password, verify_password, create_access_token
 from utils.smtp import generate_reset_token, send_reset_email, create_reset_record, verify_reset_token, mark_token_as_used
+from dependencies import get_current_user
+from bson import ObjectId
 from datetime import timedelta, datetime
 
 router = APIRouter()
@@ -280,3 +282,123 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
             "fecha": p.get("timestamp", "")
         } for p in partidas_recientes[:5]]
     }
+
+# ===== ENDPOINTS DEL PANEL DE ADMINISTRADOR/PROFESOR =====
+
+@router.get("/admin/estudiantes")
+async def obtener_estudiantes(request: Request, current_user: dict = Depends(get_current_user)):
+    """Obtener lista de estudiantes - solo para profesores"""
+    if current_user.get("role") != "profesor":
+        raise HTTPException(status_code=403, detail="Acceso denegado - Solo profesores")
+    
+    db = request.app.state.db
+    estudiantes = await db.users.find({"role": "user"}).to_list(None)
+    
+    # Limpiar datos sensibles y preparar respuesta
+    for estudiante in estudiantes:
+        estudiante["_id"] = str(estudiante["_id"])
+        estudiante.pop("password", None)  # Remover contraseña
+        
+    return estudiantes
+
+@router.get("/admin/partidas")
+async def obtener_partidas_admin(request: Request, current_user: dict = Depends(get_current_user)):
+    """Obtener todas las partidas del sistema - solo para profesores"""
+    if current_user.get("role") != "profesor":
+        raise HTTPException(status_code=403, detail="Acceso denegado - Solo profesores")
+    
+    db = request.app.state.db
+    partidas = await db.games.find().sort("timestamp", -1).limit(100).to_list(None)
+    
+    # Preparar datos de respuesta
+    for partida in partidas:
+        partida["_id"] = str(partida["_id"])
+        
+    return partidas
+
+@router.get("/admin/estadisticas-generales")
+async def obtener_estadisticas_generales(request: Request, current_user: dict = Depends(get_current_user)):
+    """Obtener estadísticas generales del sistema - solo para profesores"""
+    if current_user.get("role") != "profesor":
+        raise HTTPException(status_code=403, detail="Acceso denegado - Solo profesores")
+    
+    db = request.app.state.db
+    
+    # Contar usuarios
+    total_estudiantes = await db.users.count_documents({"role": "user"})
+    
+    # Contar partidas
+    total_partidas = await db.games.count_documents({})
+    
+    # Estadísticas de puzzles (agregar cuando se implemente)
+    total_puzzles = await db.puzzles.count_documents({}) if "puzzles" in await db.list_collection_names() else 0
+    
+    # Calcular ELO promedio
+    pipeline = [
+        {"$match": {"role": "user"}},
+        {"$group": {"_id": None, "average_elo": {"$avg": "$elo"}}}
+    ]
+    result = await db.users.aggregate(pipeline).to_list(1)
+    elo_promedio = int(result[0]["average_elo"]) if result else 1200
+    
+    # Actividad reciente (últimas 24 horas)
+    hace_24h = datetime.now() - timedelta(hours=24)
+    partidas_recientes = await db.games.count_documents({
+        "timestamp": {"$gte": hace_24h.isoformat()}
+    })
+    
+    return {
+        "total_estudiantes": total_estudiantes,
+        "total_partidas": total_partidas,
+        "total_puzzles": total_puzzles,
+        "average_elo": elo_promedio,
+        "partidas_24h": partidas_recientes
+    }
+
+@router.delete("/admin/estudiante/{student_id}")
+async def eliminar_estudiante(student_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    """Eliminar un estudiante - solo para profesores"""
+    if current_user.get("role") != "profesor":
+        raise HTTPException(status_code=403, detail="Acceso denegado - Solo profesores")
+    
+    db = request.app.state.db
+    
+    # Verificar que el usuario existe y es estudiante
+    usuario = await db.users.find_one({"_id": ObjectId(student_id), "role": "user"})
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    
+    # Eliminar usuario
+    await db.users.delete_one({"_id": ObjectId(student_id)})
+    
+    return {"mensaje": "Estudiante eliminado correctamente"}
+
+@router.put("/admin/estudiante/{student_id}")
+async def actualizar_estudiante(
+    student_id: str, 
+    datos: dict, 
+    request: Request, 
+    current_user: dict = Depends(get_current_user)
+):
+    """Actualizar datos de un estudiante - solo para profesores"""
+    if current_user.get("role") != "profesor":
+        raise HTTPException(status_code=403, detail="Acceso denegado - Solo profesores")
+    
+    db = request.app.state.db
+    
+    # Verificar que el usuario existe y es estudiante
+    usuario = await db.users.find_one({"_id": ObjectId(student_id), "role": "user"})
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    
+    # Filtrar campos permitidos para actualizar
+    campos_permitidos = {"username", "email", "elo"}
+    datos_filtrados = {k: v for k, v in datos.items() if k in campos_permitidos}
+    
+    if datos_filtrados:
+        await db.users.update_one(
+            {"_id": ObjectId(student_id)},
+            {"$set": datos_filtrados}
+        )
+    
+    return {"mensaje": "Estudiante actualizado correctamente"}
