@@ -402,3 +402,42 @@ async def actualizar_estudiante(
         )
     
     return {"mensaje": "Estudiante actualizado correctamente"}
+
+# ===== ENDPOINT TEMPORAL PARA CREAR PROFESORES =====
+
+@router.post("/crear-profesor-temporal")
+async def crear_profesor_temporal(request: Request):
+    """Endpoint temporal para crear un usuario profesor de prueba"""
+    db = request.app.state.db
+    
+    # Eliminar profesor existente si existe
+    await db.users.delete_many({"email": "profesor@chess.edu"})
+    
+    # Crear usuario profesor
+    profesor_data = {
+        "username": "profesor",
+        "email": "profesor@chess.edu", 
+        "password": hash_password("profesor123"),
+        "role": "profesor",
+        "elo": 1800,
+        "games_played": 0,
+        "games_won": 0,
+        "games_lost": 0,
+        "games_drawn": 0,
+        "puzzles_resueltos_correctamente": 0,
+        "puzzles_resueltos_incorrectamente": 0,
+        "historial_puzzles": [],
+        "aulas": [],
+        "progreso_lecciones": []
+    }
+    
+    result = await db.users.insert_one(profesor_data)
+    
+    return {
+        "mensaje": "Usuario profesor creado exitosamente",
+        "id": str(result.inserted_id),
+        "credentials": {
+            "email": "profesor@chess.edu",
+            "password": "profesor123"
+        }
+    }
