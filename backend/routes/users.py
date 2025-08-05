@@ -403,6 +403,78 @@ async def actualizar_estudiante(
     
     return {"mensaje": "Estudiante actualizado correctamente"}
 
+@router.get("/admin/estudiante/{student_id}/detalles")
+async def obtener_detalles_estudiante(
+    student_id: str, 
+    request: Request, 
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtener detalles completos de un estudiante - solo para profesores"""
+    if current_user.get("role") != "profesor":
+        raise HTTPException(status_code=403, detail="Acceso denegado - Solo profesores")
+    
+    db = request.app.state.db
+    
+    # Verificar que el usuario existe y es estudiante
+    usuario = await db.users.find_one({"_id": ObjectId(student_id), "role": "user"})
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    
+    print(f"DEBUG: Procesando estudiante: {usuario['username']}")
+    
+    # Obtener estadísticas de partidas del estudiante
+    partidas_como_blancas = await db.games.find({"white_player": usuario["username"]}).to_list(None)
+    partidas_como_negras = await db.games.find({"black_player": usuario["username"]}).to_list(None)
+    todas_las_partidas = partidas_como_blancas + partidas_como_negras
+    
+    print(f"DEBUG: Partidas encontradas: {len(todas_las_partidas)}")
+    
+    # Calcular estadísticas de partidas
+    partidas_jugadas = len(todas_las_partidas)
+    partidas_ganadas = len([p for p in todas_las_partidas if p.get("winner") == usuario["username"]])
+    partidas_perdidas = len([p for p in todas_las_partidas if p.get("winner") and p.get("winner") != usuario["username"] and p.get("winner") != "draw"])
+    partidas_empatadas = len([p for p in todas_las_partidas if p.get("winner") == "draw"])
+    
+    # Obtener estadísticas de puzzles
+    puzzles_resueltos = usuario.get("puzzles_resueltos_correctamente", 0)
+    
+    # Obtener progreso de lecciones
+    lecciones_completadas = len(usuario.get("progreso_lecciones", []))
+    
+    # Calcular última conexión (basado en la partida más reciente)
+    ultima_conexion = "No disponible"
+    if todas_las_partidas:
+        partida_reciente = max(todas_las_partidas, key=lambda x: x.get("timestamp", ""))
+        if partida_reciente.get("timestamp"):
+            try:
+                fecha_partida = datetime.fromisoformat(partida_reciente["timestamp"].replace("Z", "+00:00"))
+                ultima_conexion = fecha_partida.strftime("%d/%m/%Y %H:%M")
+            except:
+                ultima_conexion = "No disponible"
+    
+    # Obtener fecha de registro
+    fecha_registro = "No disponible"
+    if usuario.get("created_at"):
+        try:
+            fecha_creacion = datetime.fromisoformat(usuario["created_at"].replace("Z", "+00:00"))
+            fecha_registro = fecha_creacion.strftime("%d/%m/%Y")
+        except:
+            fecha_registro = "No disponible"
+    
+    return {
+        "partidas_jugadas": partidas_jugadas,
+        "partidas_ganadas": partidas_ganadas,
+        "partidas_perdidas": partidas_perdidas,
+        "partidas_empatadas": partidas_empatadas,
+        "puzzles_resueltos": puzzles_resueltos,
+        "lecciones_completadas": lecciones_completadas,
+        "fecha_registro": fecha_registro,
+        "ultima_conexion": ultima_conexion,
+        "elo_actual": usuario.get("elo", 1200),
+        "email": usuario.get("email", ""),
+        "username": usuario.get("username", "")
+    }
+
 # ===== ENDPOINT TEMPORAL PARA CREAR PROFESORES =====
 
 @router.post("/crear-profesor-temporal")
