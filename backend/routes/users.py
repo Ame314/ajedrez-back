@@ -527,21 +527,14 @@ async def obtener_lecciones(
     try:
         db = request.app.state.db
         
-        # Obtener todas las lecciones de la base de datos
-        lecciones = []
-        async for leccion in db.lecciones.find({}):
-            leccion["_id"] = str(leccion["_id"])
-            lecciones.append(leccion)
-        
-        # Si no hay lecciones en BD, devolver lecciones por defecto
-        if not lecciones:
-            lecciones_default = [
-                {
-                    "_id": "default_1",
-                    "id": 1,
-                    "titulo": "Fundamentos del Ajedrez",
-                    "descripcion": "Aprende las reglas básicas, el tablero y el movimiento de las piezas",
-                    "contenido": """
+        # Definir lecciones por defecto (siempre incluir)
+        lecciones_default = [
+            {
+                "_id": "default_1",
+                "id": 1,
+                "titulo": "Fundamentos del Ajedrez",
+                "descripcion": "Aprende las reglas básicas, el tablero y el movimiento de las piezas",
+                "contenido": """
 # Fundamentos del Ajedrez
 
 ## El Tablero de Ajedrez
@@ -589,39 +582,41 @@ El objetivo es dar jaque mate al rey del oponente. Esto significa atacar al rey 
 - **Jaque Mate**: Cuando el rey está en jaque y no puede escapar
 - **Ahogado**: Cuando un jugador no tiene movimientos legales pero su rey no está en jaque (tablas)
 - **Enroque**: Jugada especial que involucra al rey y una torre
-                    """,
-                    "video_url": "https://www.youtube.com/watch?v=OCSbzArwB10",
-                    "quiz": [
-                        {
-                            "pregunta": "¿Cuántas casillas tiene un tablero de ajedrez?",
-                            "opciones": ["32", "64", "48", "56"],
-                            "respuesta_correcta": 1
-                        },
-                        {
-                            "pregunta": "¿Cuál es la única pieza que puede saltar sobre otras?",
-                            "opciones": ["Rey", "Caballo", "Alfil", "Torre"],
-                            "respuesta_correcta": 1
-                        },
-                        {
-                            "pregunta": "¿En qué esquina debe estar la casilla blanca para cada jugador?",
-                            "opciones": ["Inferior izquierda", "Superior derecha", "Inferior derecha", "Superior izquierda"],
-                            "respuesta_correcta": 2
-                        },
-                        {
-                            "pregunta": "¿Qué significa 'jaque mate'?",
-                            "opciones": ["El rey está atacado", "El rey no puede moverse", "El rey está atacado y no puede escapar", "El juego termina en tablas"],
-                            "respuesta_correcta": 2
-                        }
-                    ],
-                    "dificultad": "Principiante",
-                    "orden": 1
-                },
-                {
-                    "_id": "default_2", 
-                    "id": 2,
-                    "titulo": "Tácticas Básicas de Ajedrez",
-                    "descripcion": "Aprende las tácticas fundamentales: clavada, horquilla, ataque doble y descubierta",
-                    "contenido": """
+                """,
+                "video_url": "https://www.youtube.com/watch?v=OCSbzArwB10",
+                "quiz": [
+                    {
+                        "pregunta": "¿Cuántas casillas tiene un tablero de ajedrez?",
+                        "opciones": ["32", "64", "48", "56"],
+                        "respuesta_correcta": 1
+                    },
+                    {
+                        "pregunta": "¿Cuál es la única pieza que puede saltar sobre otras?",
+                        "opciones": ["Rey", "Caballo", "Alfil", "Torre"],
+                        "respuesta_correcta": 1
+                    },
+                    {
+                        "pregunta": "¿En qué esquina debe estar la casilla blanca para cada jugador?",
+                        "opciones": ["Inferior izquierda", "Superior derecha", "Inferior derecha", "Superior izquierda"],
+                        "respuesta_correcta": 2
+                    },
+                    {
+                        "pregunta": "¿Qué significa 'jaque mate'?",
+                        "opciones": ["El rey está atacado", "El rey no puede moverse", "El rey está atacado y no puede escapar", "El juego termina en tablas"],
+                        "respuesta_correcta": 2
+                    }
+                ],
+                "dificultad": "Principiante",
+                "orden": 1,
+                "fecha_creacion": "2024-01-01T00:00:00",
+                "creador": "sistema"
+            },
+            {
+                "_id": "default_2", 
+                "id": 2,
+                "titulo": "Tácticas Básicas de Ajedrez",
+                "descripcion": "Aprende las tácticas fundamentales: clavada, horquilla, ataque doble y descubierta",
+                "contenido": """
 # Tácticas Básicas de Ajedrez
 
 Las tácticas son combinaciones de movimientos que te permiten ganar material o lograr una ventaja posicional. Dominar estas tácticas básicas es esencial para mejorar tu juego.
@@ -686,42 +681,69 @@ El oponente está obligado a salir del jaque, lo que te permite capturar con la 
 
 ## Práctica Recomendada:
 Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 movimientos y gradualmente aumenta la dificultad.
-                    """,
-                    "video_url": "https://www.youtube.com/watch?v=Ao9iOeK_jvU",
-                    "quiz": [
-                        {
-                            "pregunta": "¿Qué es una clavada en ajedrez?",
-                            "opciones": ["Cuando una pieza ataca a dos piezas", "Cuando una pieza no puede moverse sin exponer otra", "Cuando el rey está en jaque", "Cuando capturas una pieza"],
-                            "respuesta_correcta": 1
-                        },
-                        {
-                            "pregunta": "¿Cuál es la táctica donde una pieza ataca simultáneamente a dos objetivos?",
-                            "opciones": ["Clavada", "Horquilla", "Ataque doble", "Descubierta"],
-                            "respuesta_correcta": 1
-                        },
-                        {
-                            "pregunta": "¿Qué pieza es especialmente buena para hacer horquillas?",
-                            "opciones": ["Torre", "Alfil", "Caballo", "Peón"],
-                            "respuesta_correcta": 2
-                        },
-                        {
-                            "pregunta": "¿Qué sucede en un ataque a la descubierta?",
-                            "opciones": ["Se mueve una pieza y revela el ataque de otra", "Se atacan dos piezas a la vez", "Se clava una pieza al rey", "Se da jaque mate"],
-                            "respuesta_correcta": 0
-                        },
-                        {
-                            "pregunta": "¿Por qué el jaque a la descubierta es especialmente poderoso?",
-                            "opciones": ["Gana material inmediatamente", "El oponente debe salir del jaque obligatoriamente", "Es imposible de defender", "Termina la partida"],
-                            "respuesta_correcta": 1
-                        }
-                    ],
-                    "dificultad": "Principiante",
-                    "orden": 2
-                }
-            ]
-            return {"lecciones": lecciones_default}
+                """,
+                "video_url": "https://www.youtube.com/watch?v=Ao9iOeK_jvU",
+                "quiz": [
+                    {
+                        "pregunta": "¿Qué es una clavada en ajedrez?",
+                        "opciones": ["Cuando una pieza ataca a dos piezas", "Cuando una pieza no puede moverse sin exponer otra", "Cuando el rey está en jaque", "Cuando capturas una pieza"],
+                        "respuesta_correcta": 1
+                    },
+                    {
+                        "pregunta": "¿Cuál es la táctica donde una pieza ataca simultáneamente a dos objetivos?",
+                        "opciones": ["Clavada", "Horquilla", "Ataque doble", "Descubierta"],
+                        "respuesta_correcta": 1
+                    },
+                    {
+                        "pregunta": "¿Qué pieza es especialmente buena para hacer horquillas?",
+                        "opciones": ["Torre", "Alfil", "Caballo", "Peón"],
+                        "respuesta_correcta": 2
+                    },
+                    {
+                        "pregunta": "¿Qué sucede en un ataque a la descubierta?",
+                        "opciones": ["Se mueve una pieza y revela el ataque de otra", "Se atacan dos piezas a la vez", "Se clava una pieza al rey", "Se da jaque mate"],
+                        "respuesta_correcta": 0
+                    },
+                    {
+                        "pregunta": "¿Por qué el jaque a la descubierta es especialmente poderoso?",
+                        "opciones": ["Gana material inmediatamente", "El oponente debe salir del jaque obligatoriamente", "Es imposible de defender", "Termina la partida"],
+                        "respuesta_correcta": 1
+                    }
+                ],
+                "dificultad": "Principiante",
+                "orden": 2,
+                "fecha_creacion": "2024-01-01T00:00:00",
+                "creador": "sistema"
+            }
+        ]
         
-        return {"lecciones": lecciones}
+        # Obtener lecciones creadas por profesores desde la BD
+        lecciones_profesores = []
+        async for leccion in db.lecciones.find({}).sort("orden", 1):
+            leccion["_id"] = str(leccion["_id"])
+            # Asegurar campos para lecciones antiguas
+            if "fecha_creacion" not in leccion:
+                leccion["fecha_creacion"] = "2024-01-01T00:00:00"
+            if "creador" not in leccion:
+                leccion["creador"] = "profesor"
+            lecciones_profesores.append(leccion)
+        
+        # Combinar lecciones por defecto + lecciones de profesores
+        todas_las_lecciones = lecciones_default.copy()
+        
+        # Ajustar el orden de las lecciones del profesor para evitar conflictos
+        orden_max = max([l["orden"] for l in lecciones_default]) if lecciones_default else 0
+        for leccion in lecciones_profesores:
+            # Si la lección del profesor tiene orden que no conflicta con las por defecto, mantenerlo
+            # Si no, ajustar el orden
+            if leccion["orden"] <= orden_max:
+                leccion["orden"] = orden_max + leccion["orden"]
+            todas_las_lecciones.append(leccion)
+        
+        # Ordenar todas las lecciones por orden
+        todas_las_lecciones.sort(key=lambda x: x["orden"])
+        
+        return {"lecciones": todas_las_lecciones}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error obteniendo lecciones: {str(e)}")
