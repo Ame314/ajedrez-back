@@ -537,31 +537,181 @@ async def obtener_lecciones(
         if not lecciones:
             lecciones_default = [
                 {
-                    "_id": "1",
+                    "_id": "default_1",
                     "id": 1,
-                    "titulo": "Introducción al Ajedrez",
-                    "descripcion": "Aprende los fundamentos básicos del ajedrez",
-                    "contenido": "El ajedrez es un juego de estrategia que se juega en un tablero de 8x8 casillas...",
+                    "titulo": "Fundamentos del Ajedrez",
+                    "descripcion": "Aprende las reglas básicas, el tablero y el movimiento de las piezas",
+                    "contenido": """
+# Fundamentos del Ajedrez
+
+## El Tablero de Ajedrez
+El ajedrez se juega en un tablero cuadrado de 8x8 casillas (64 casillas en total). Las casillas alternan entre colores claros y oscuros. El tablero siempre debe colocarse de manera que cada jugador tenga una casilla blanca en la esquina inferior derecha.
+
+## Las Piezas y sus Movimientos
+
+### El Rey (♔ ♚)
+- Es la pieza más importante del juego
+- Se mueve una casilla en cualquier dirección (horizontal, vertical o diagonal)
+- No puede moverse a una casilla atacada por el oponente
+- Participa en el enroque, una jugada especial
+
+### La Dama/Reina (♕ ♛)
+- Es la pieza más poderosa
+- Se mueve cualquier número de casillas en línea recta (horizontal, vertical o diagonal)
+- Combina los movimientos de la torre y el alfil
+
+### La Torre (♖ ♜)
+- Se mueve cualquier número de casillas horizontal o verticalmente
+- Participa en el enroque junto con el rey
+- En el final de partida es muy poderosa
+
+### El Alfil (♗ ♝)
+- Se mueve cualquier número de casillas en diagonal
+- Cada jugador tiene un alfil de casillas blancas y otro de casillas negras
+- Los alfiles nunca cambian de color de casilla
+
+### El Caballo (♘ ♞)
+- Se mueve en forma de "L": dos casillas en una dirección y una casilla perpendicular
+- Es la única pieza que puede "saltar" sobre otras piezas
+- Siempre cambia de color de casilla en cada movimiento
+
+### El Peón (♙ ♟)
+- Se mueve una casilla hacia adelante (dos casillas en su primer movimiento)
+- Captura en diagonal hacia adelante
+- Puede promocionar al llegar al final del tablero
+- Tiene movimientos especiales: captura al paso
+
+## Objetivos del Juego
+El objetivo es dar jaque mate al rey del oponente. Esto significa atacar al rey de tal manera que no pueda escapar en la siguiente jugada.
+
+## Conceptos Básicos
+- **Jaque**: Cuando el rey está siendo atacado
+- **Jaque Mate**: Cuando el rey está en jaque y no puede escapar
+- **Ahogado**: Cuando un jugador no tiene movimientos legales pero su rey no está en jaque (tablas)
+- **Enroque**: Jugada especial que involucra al rey y una torre
+                    """,
+                    "video_url": "https://www.youtube.com/watch?v=OCSbzArwB10",
                     "quiz": [
                         {
                             "pregunta": "¿Cuántas casillas tiene un tablero de ajedrez?",
                             "opciones": ["32", "64", "48", "56"],
                             "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿Cuál es la única pieza que puede saltar sobre otras?",
+                            "opciones": ["Rey", "Caballo", "Alfil", "Torre"],
+                            "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿En qué esquina debe estar la casilla blanca para cada jugador?",
+                            "opciones": ["Inferior izquierda", "Superior derecha", "Inferior derecha", "Superior izquierda"],
+                            "respuesta_correcta": 2
+                        },
+                        {
+                            "pregunta": "¿Qué significa 'jaque mate'?",
+                            "opciones": ["El rey está atacado", "El rey no puede moverse", "El rey está atacado y no puede escapar", "El juego termina en tablas"],
+                            "respuesta_correcta": 2
                         }
                     ],
                     "dificultad": "Principiante",
                     "orden": 1
                 },
                 {
-                    "_id": "2", 
+                    "_id": "default_2", 
                     "id": 2,
-                    "titulo": "Movimiento de las Piezas",
-                    "descripcion": "Aprende cómo se mueve cada pieza",
-                    "contenido": "Cada pieza en el ajedrez tiene su propio patrón de movimiento único...",
+                    "titulo": "Tácticas Básicas de Ajedrez",
+                    "descripcion": "Aprende las tácticas fundamentales: clavada, horquilla, ataque doble y descubierta",
+                    "contenido": """
+# Tácticas Básicas de Ajedrez
+
+Las tácticas son combinaciones de movimientos que te permiten ganar material o lograr una ventaja posicional. Dominar estas tácticas básicas es esencial para mejorar tu juego.
+
+## 1. La Clavada (Pin)
+
+### ¿Qué es una clavada?
+Una clavada ocurre cuando una pieza no puede moverse (o no debe moverse) porque expondrías una pieza más valiosa detrás de ella a un ataque.
+
+### Tipos de clavadas:
+- **Clavada absoluta**: La pieza no puede moverse legalmente (como cuando un peón está clavado al rey)
+- **Clavada relativa**: La pieza puede moverse, pero sería ventajoso para el oponente
+
+### Ejemplo práctico:
+Si tu alfil ataca al caballo del oponente que está delante de su rey, el caballo está "clavado" porque moverlo pondría al rey en jaque.
+
+## 2. La Horquilla (Fork)
+
+### ¿Qué es una horquilla?
+Una horquilla es cuando una sola pieza ataca simultáneamente dos o más piezas enemigas.
+
+### Horquillas comunes:
+- **Horquilla de caballo**: El caballo ataca dos piezas a la vez
+- **Horquilla de peón**: Un peón ataca dos piezas simultáneamente
+- **Horquilla de dama**: La dama ataca múltiples objetivos
+
+### Consejo táctico:
+Los caballos son especialmente buenos para hacer horquillas debido a su movimiento único en "L".
+
+## 3. El Ataque Doble
+
+### Definición:
+Un ataque doble ocurre cuando atacas dos objetivos diferentes con dos piezas distintas en el mismo movimiento.
+
+### Estrategia:
+Tu oponente solo puede defender uno de los dos ataques, permitiéndote ganar material en el siguiente movimiento.
+
+## 4. El Ataque a la Descubierta
+
+### ¿Cómo funciona?
+Cuando mueves una pieza, "descubres" un ataque de otra pieza que estaba detrás de ella.
+
+### Ventajas:
+- La pieza que se mueve puede atacar un objetivo
+- La pieza que "se descubre" ataca otro objetivo
+- Es muy difícil de defender
+
+## 5. El Jaque a la Descubierta
+
+### Concepto avanzado:
+Es un ataque a la descubierta donde la pieza descubierta da jaque al rey enemigo.
+
+### Por qué es poderoso:
+El oponente está obligado a salir del jaque, lo que te permite capturar con la pieza que moviste inicialmente.
+
+## Consejos para Detectar Tácticas:
+
+1. **Busca piezas desprotegidas**: Son objetivos fáciles para tácticas
+2. **Identifica piezas sobrecargadas**: Piezas que defienden múltiples objetivos
+3. **Observa la posición del rey**: Un rey expuesto es vulnerable a tácticas
+4. **Cuenta los atacantes y defensores**: Si tienes más atacantes que defensores en una pieza, puedes ganar material
+
+## Práctica Recomendada:
+Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 movimientos y gradualmente aumenta la dificultad.
+                    """,
+                    "video_url": "https://www.youtube.com/watch?v=Ao9iOeK_jvU",
                     "quiz": [
                         {
-                            "pregunta": "¿Cuál es la única pieza que puede saltar sobre otras?",
-                            "opciones": ["Rey", "Caballo", "Alfil", "Torre"],
+                            "pregunta": "¿Qué es una clavada en ajedrez?",
+                            "opciones": ["Cuando una pieza ataca a dos piezas", "Cuando una pieza no puede moverse sin exponer otra", "Cuando el rey está en jaque", "Cuando capturas una pieza"],
+                            "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿Cuál es la táctica donde una pieza ataca simultáneamente a dos objetivos?",
+                            "opciones": ["Clavada", "Horquilla", "Ataque doble", "Descubierta"],
+                            "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿Qué pieza es especialmente buena para hacer horquillas?",
+                            "opciones": ["Torre", "Alfil", "Caballo", "Peón"],
+                            "respuesta_correcta": 2
+                        },
+                        {
+                            "pregunta": "¿Qué sucede en un ataque a la descubierta?",
+                            "opciones": ["Se mueve una pieza y revela el ataque de otra", "Se atacan dos piezas a la vez", "Se clava una pieza al rey", "Se da jaque mate"],
+                            "respuesta_correcta": 0
+                        },
+                        {
+                            "pregunta": "¿Por qué el jaque a la descubierta es especialmente poderoso?",
+                            "opciones": ["Gana material inmediatamente", "El oponente debe salir del jaque obligatoriamente", "Es imposible de defender", "Termina la partida"],
                             "respuesta_correcta": 1
                         }
                     ],
@@ -696,6 +846,7 @@ async def crear_leccion(
             "dificultad": leccion_data["dificultad"],
             "orden": int(leccion_data["orden"]),
             "quiz": leccion_data.get("quiz", []),
+            "video_url": leccion_data.get("video_url", ""),  # Campo opcional para video de YouTube
             "fecha_creacion": datetime.now().isoformat(),
             "creador": current_user["id"]
         }
@@ -742,6 +893,7 @@ async def actualizar_leccion(
             "dificultad": leccion_data.get("dificultad", leccion["dificultad"]),
             "orden": int(leccion_data.get("orden", leccion["orden"])),
             "quiz": leccion_data.get("quiz", leccion.get("quiz", [])),
+            "video_url": leccion_data.get("video_url", leccion.get("video_url", "")),  # Incluir video_url
             "fecha_modificacion": datetime.now().isoformat(),
             "modificador": current_user["id"]
         }
@@ -826,6 +978,48 @@ async def listar_lecciones_admin(
                 leccion["creador"] = "sistema"
             lecciones.append(leccion)
         
+        # Si no hay lecciones en BD, incluir lecciones por defecto
+        if not lecciones:
+            lecciones_default = [
+                {
+                    "_id": "default_1",
+                    "id": 1,
+                    "titulo": "Introducción al Ajedrez",
+                    "descripcion": "Aprende los fundamentos básicos del ajedrez",
+                    "contenido": "El ajedrez es un juego de estrategia que se juega en un tablero de 8x8 casillas...",
+                    "quiz": [
+                        {
+                            "pregunta": "¿Cuántas casillas tiene un tablero de ajedrez?",
+                            "opciones": ["32", "64", "48", "56"],
+                            "respuesta_correcta": 1
+                        }
+                    ],
+                    "dificultad": "Principiante",
+                    "orden": 1,
+                    "fecha_creacion": "2024-01-01T00:00:00",
+                    "creador": "sistema"
+                },
+                {
+                    "_id": "default_2", 
+                    "id": 2,
+                    "titulo": "Movimiento de las Piezas",
+                    "descripcion": "Aprende cómo se mueve cada pieza",
+                    "contenido": "Cada pieza en el ajedrez tiene su propio patrón de movimiento único...",
+                    "quiz": [
+                        {
+                            "pregunta": "¿Cuál es la única pieza que puede saltar sobre otras?",
+                            "opciones": ["Rey", "Caballo", "Alfil", "Torre"],
+                            "respuesta_correcta": 1
+                        }
+                    ],
+                    "dificultad": "Principiante",
+                    "orden": 2,
+                    "fecha_creacion": "2024-01-01T00:00:00",
+                    "creador": "sistema"
+                }
+            ]
+            lecciones = lecciones_default
+        
         return {"lecciones": lecciones}
         
     except Exception as e:
@@ -844,18 +1038,221 @@ async def obtener_leccion_individual(
     try:
         db = request.app.state.db
         
-        # Buscar la lección por ID
-        leccion = await db.lecciones.find_one({"_id": ObjectId(leccion_id)})
+        leccion = None
+        
+        # Primero intentar buscar por ObjectId (lecciones creadas por profesores)
+        try:
+            leccion = await db.lecciones.find_one({"_id": ObjectId(leccion_id)})
+            if leccion:
+                leccion["_id"] = str(leccion["_id"])
+        except:
+            # Si falla, intentar buscar por ID numérico o string (lecciones por defecto)
+            leccion = await db.lecciones.find_one({"id": int(leccion_id) if leccion_id.isdigit() else leccion_id})
+            if not leccion:
+                leccion = await db.lecciones.find_one({"_id": leccion_id})
+        
+        # Si no se encuentra en BD, verificar lecciones por defecto
+        if not leccion:
+            # Obtener lecciones por defecto
+            lecciones_default = [
+                {
+                    "_id": "default_1",
+                    "id": 1,
+                    "titulo": "Fundamentos del Ajedrez",
+                    "descripcion": "Aprende las reglas básicas, el tablero y el movimiento de las piezas",
+                    "contenido": """
+# Fundamentos del Ajedrez
+
+## El Tablero de Ajedrez
+El ajedrez se juega en un tablero cuadrado de 8x8 casillas (64 casillas en total). Las casillas alternan entre colores claros y oscuros. El tablero siempre debe colocarse de manera que cada jugador tenga una casilla blanca en la esquina inferior derecha.
+
+## Las Piezas y sus Movimientos
+
+### El Rey (♔ ♚)
+- Es la pieza más importante del juego
+- Se mueve una casilla en cualquier dirección (horizontal, vertical o diagonal)
+- No puede moverse a una casilla atacada por el oponente
+- Participa en el enroque, una jugada especial
+
+### La Dama/Reina (♕ ♛)
+- Es la pieza más poderosa
+- Se mueve cualquier número de casillas en línea recta (horizontal, vertical o diagonal)
+- Combina los movimientos de la torre y el alfil
+
+### La Torre (♖ ♜)
+- Se mueve cualquier número de casillas horizontal o verticalmente
+- Participa en el enroque junto con el rey
+- En el final de partida es muy poderosa
+
+### El Alfil (♗ ♝)
+- Se mueve cualquier número de casillas en diagonal
+- Cada jugador tiene un alfil de casillas blancas y otro de casillas negras
+- Los alfiles nunca cambian de color de casilla
+
+### El Caballo (♘ ♞)
+- Se mueve en forma de "L": dos casillas en una dirección y una casilla perpendicular
+- Es la única pieza que puede "saltar" sobre otras piezas
+- Siempre cambia de color de casilla en cada movimiento
+
+### El Peón (♙ ♟)
+- Se mueve una casilla hacia adelante (dos casillas en su primer movimiento)
+- Captura en diagonal hacia adelante
+- Puede promocionar al llegar al final del tablero
+- Tiene movimientos especiales: captura al paso
+
+## Objetivos del Juego
+El objetivo es dar jaque mate al rey del oponente. Esto significa atacar al rey de tal manera que no pueda escapar en la siguiente jugada.
+
+## Conceptos Básicos
+- **Jaque**: Cuando el rey está siendo atacado
+- **Jaque Mate**: Cuando el rey está en jaque y no puede escapar
+- **Ahogado**: Cuando un jugador no tiene movimientos legales pero su rey no está en jaque (tablas)
+- **Enroque**: Jugada especial que involucra al rey y una torre
+                    """,
+                    "video_url": "https://www.youtube.com/watch?v=OCSbzArwB10",
+                    "quiz": [
+                        {
+                            "pregunta": "¿Cuántas casillas tiene un tablero de ajedrez?",
+                            "opciones": ["32", "64", "48", "56"],
+                            "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿Cuál es la única pieza que puede saltar sobre otras?",
+                            "opciones": ["Rey", "Caballo", "Alfil", "Torre"],
+                            "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿En qué esquina debe estar la casilla blanca para cada jugador?",
+                            "opciones": ["Inferior izquierda", "Superior derecha", "Inferior derecha", "Superior izquierda"],
+                            "respuesta_correcta": 2
+                        },
+                        {
+                            "pregunta": "¿Qué significa 'jaque mate'?",
+                            "opciones": ["El rey está atacado", "El rey no puede moverse", "El rey está atacado y no puede escapar", "El juego termina en tablas"],
+                            "respuesta_correcta": 2
+                        }
+                    ],
+                    "dificultad": "Principiante",
+                    "orden": 1
+                },
+                {
+                    "_id": "default_2", 
+                    "id": 2,
+                    "titulo": "Tácticas Básicas de Ajedrez",
+                    "descripcion": "Aprende las tácticas fundamentales: clavada, horquilla, ataque doble y descubierta",
+                    "contenido": """
+# Tácticas Básicas de Ajedrez
+
+Las tácticas son combinaciones de movimientos que te permiten ganar material o lograr una ventaja posicional. Dominar estas tácticas básicas es esencial para mejorar tu juego.
+
+## 1. La Clavada (Pin)
+
+### ¿Qué es una clavada?
+Una clavada ocurre cuando una pieza no puede moverse (o no debe moverse) porque expondrías una pieza más valiosa detrás de ella a un ataque.
+
+### Tipos de clavadas:
+- **Clavada absoluta**: La pieza no puede moverse legalmente (como cuando un peón está clavado al rey)
+- **Clavada relativa**: La pieza puede moverse, pero sería ventajoso para el oponente
+
+### Ejemplo práctico:
+Si tu alfil ataca al caballo del oponente que está delante de su rey, el caballo está "clavado" porque moverlo pondría al rey en jaque.
+
+## 2. La Horquilla (Fork)
+
+### ¿Qué es una horquilla?
+Una horquilla es cuando una sola pieza ataca simultáneamente dos o más piezas enemigas.
+
+### Horquillas comunes:
+- **Horquilla de caballo**: El caballo ataca dos piezas a la vez
+- **Horquilla de peón**: Un peón ataca dos piezas simultáneamente
+- **Horquilla de dama**: La dama ataca múltiples objetivos
+
+### Consejo táctico:
+Los caballos son especialmente buenos para hacer horquillas debido a su movimiento único en "L".
+
+## 3. El Ataque Doble
+
+### Definición:
+Un ataque doble ocurre cuando atacas dos objetivos diferentes con dos piezas distintas en el mismo movimiento.
+
+### Estrategia:
+Tu oponente solo puede defender uno de los dos ataques, permitiéndote ganar material en el siguiente movimiento.
+
+## 4. El Ataque a la Descubierta
+
+### ¿Cómo funciona?
+Cuando mueves una pieza, "descubres" un ataque de otra pieza que estaba detrás de ella.
+
+### Ventajas:
+- La pieza que se mueve puede atacar un objetivo
+- La pieza que "se descubre" ataca otro objetivo
+- Es muy difícil de defender
+
+## 5. El Jaque a la Descubierta
+
+### Concepto avanzado:
+Es un ataque a la descubierta donde la pieza descubierta da jaque al rey enemigo.
+
+### Por qué es poderoso:
+El oponente está obligado a salir del jaque, lo que te permite capturar con la pieza que moviste inicialmente.
+
+## Consejos para Detectar Tácticas:
+
+1. **Busca piezas desprotegidas**: Son objetivos fáciles para tácticas
+2. **Identifica piezas sobrecargadas**: Piezas que defienden múltiples objetivos
+3. **Observa la posición del rey**: Un rey expuesto es vulnerable a tácticas
+4. **Cuenta los atacantes y defensores**: Si tienes más atacantes que defensores en una pieza, puedes ganar material
+
+## Práctica Recomendada:
+Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 movimientos y gradualmente aumenta la dificultad.
+                    """,
+                    "video_url": "https://www.youtube.com/watch?v=Ao9iOeK_jvU",
+                    "quiz": [
+                        {
+                            "pregunta": "¿Qué es una clavada en ajedrez?",
+                            "opciones": ["Cuando una pieza ataca a dos piezas", "Cuando una pieza no puede moverse sin exponer otra", "Cuando el rey está en jaque", "Cuando capturas una pieza"],
+                            "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿Cuál es la táctica donde una pieza ataca simultáneamente a dos objetivos?",
+                            "opciones": ["Clavada", "Horquilla", "Ataque doble", "Descubierta"],
+                            "respuesta_correcta": 1
+                        },
+                        {
+                            "pregunta": "¿Qué pieza es especialmente buena para hacer horquillas?",
+                            "opciones": ["Torre", "Alfil", "Caballo", "Peón"],
+                            "respuesta_correcta": 2
+                        },
+                        {
+                            "pregunta": "¿Qué sucede en un ataque a la descubierta?",
+                            "opciones": ["Se mueve una pieza y revela el ataque de otra", "Se atacan dos piezas a la vez", "Se clava una pieza al rey", "Se da jaque mate"],
+                            "respuesta_correcta": 0
+                        },
+                        {
+                            "pregunta": "¿Por qué el jaque a la descubierta es especialmente poderoso?",
+                            "opciones": ["Gana material inmediatamente", "El oponente debe salir del jaque obligatoriamente", "Es imposible de defender", "Termina la partida"],
+                            "respuesta_correcta": 1
+                        }
+                    ],
+                    "dificultad": "Principiante",
+                    "orden": 2
+                }
+            ]
+            
+            # Buscar en lecciones por defecto
+            for leccion_default in lecciones_default:
+                if (leccion_default["_id"] == leccion_id or 
+                    str(leccion_default["id"]) == leccion_id or
+                    leccion_default["id"] == int(leccion_id) if leccion_id.isdigit() else False):
+                    leccion = leccion_default
+                    break
         
         if not leccion:
             raise HTTPException(status_code=404, detail="Lección no encontrada")
         
-        # Convertir ObjectId a string
-        leccion["_id"] = str(leccion["_id"])
-        
         return leccion
         
+    except HTTPException:
+        raise
     except Exception as e:
-        if "invalid ObjectId" in str(e):
-            raise HTTPException(status_code=400, detail="ID de lección inválido")
         raise HTTPException(status_code=500, detail=f"Error obteniendo lección: {str(e)}")
