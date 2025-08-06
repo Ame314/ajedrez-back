@@ -717,25 +717,50 @@ Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 
             }
         ]
         
-        # Obtener lecciones creadas por profesores desde la BD
+        # Para cada lección por defecto, verificar si existe una personalizada
+        lecciones_default_finales = []
+        for leccion_default in lecciones_default:
+            default_id = leccion_default["_id"]
+            
+            # Buscar si existe una lección personalizada basada en esta por defecto
+            # Mostrar a todos los estudiantes la primera lección personalizada encontrada
+            leccion_personalizada = await db.lecciones.find_one({
+                "basada_en_default": default_id
+            })
+            
+            if leccion_personalizada:
+                print(f"[DEBUG] Estudiante - Encontrada lección personalizada para {default_id}: {leccion_personalizada['_id']}")
+                # Usar la lección personalizada en lugar de la por defecto
+                leccion_personalizada["_id"] = str(leccion_personalizada["_id"])
+                if "id" not in leccion_personalizada:
+                    leccion_personalizada["id"] = leccion_personalizada["_id"]
+                lecciones_default_finales.append(leccion_personalizada)
+            else:
+                print(f"[DEBUG] Estudiante - No se encontró lección personalizada para {default_id}, usando la por defecto")
+                # Usar la lección por defecto original
+                lecciones_default_finales.append(leccion_default)
+        
+        # Obtener lecciones creadas por profesores desde la BD (excluyendo personalizaciones)
         lecciones_profesores = []
         async for leccion in db.lecciones.find({}).sort("orden", 1):
-            leccion["_id"] = str(leccion["_id"])
-            # Asegurar que todas las lecciones tengan un campo 'id' para navegación
-            if "id" not in leccion:
-                leccion["id"] = leccion["_id"]
-            # Asegurar campos para lecciones antiguas
-            if "fecha_creacion" not in leccion:
-                leccion["fecha_creacion"] = "2024-01-01T00:00:00"
-            if "creador" not in leccion:
-                leccion["creador"] = "profesor"
-            lecciones_profesores.append(leccion)
+            # Solo incluir lecciones que NO sean personalizaciones de lecciones por defecto
+            if not leccion.get("basada_en_default"):
+                leccion["_id"] = str(leccion["_id"])
+                # Asegurar que todas las lecciones tengan un campo 'id' para navegación
+                if "id" not in leccion:
+                    leccion["id"] = leccion["_id"]
+                # Asegurar campos para lecciones antiguas
+                if "fecha_creacion" not in leccion:
+                    leccion["fecha_creacion"] = "2024-01-01T00:00:00"
+                if "creador" not in leccion:
+                    leccion["creador"] = "profesor"
+                lecciones_profesores.append(leccion)
         
-        # Combinar lecciones por defecto + lecciones de profesores
-        todas_las_lecciones = lecciones_default.copy()
+        # Combinar lecciones (personalizadas/por defecto) + lecciones de profesores
+        todas_las_lecciones = lecciones_default_finales.copy()
         
         # Ajustar el orden de las lecciones del profesor para evitar conflictos
-        orden_max = max([l["orden"] for l in lecciones_default]) if lecciones_default else 0
+        orden_max = max([l["orden"] for l in lecciones_default_finales]) if lecciones_default_finales else 0
         for leccion in lecciones_profesores:
             # Si la lección del profesor tiene orden que no conflicta con las por defecto, mantenerlo
             # Si no, ajustar el orden
@@ -897,6 +922,7 @@ async def actualizar_leccion(
 ):
     """
     Actualiza una lección existente (solo profesores)
+    Para lecciones por defecto, crea una nueva lección personalizada
     """
     try:
         # Verificar que el usuario sea profesor
@@ -905,6 +931,39 @@ async def actualizar_leccion(
         
         db = request.app.state.db
         
+        # Si es una lección por defecto, crear una nueva lección en lugar de editarla
+        if leccion_id.startswith('default_'):
+            print(f"[DEBUG] Editando lección por defecto: {leccion_id}")
+            print(f"[DEBUG] Datos recibidos: {leccion_data}")
+            
+            # Preparar datos de la nueva lección basada en la por defecto
+            nueva_leccion = {
+                "titulo": leccion_data.get("titulo"),
+                "descripcion": leccion_data.get("descripcion"),
+                "contenido": leccion_data.get("contenido"),
+                "dificultad": leccion_data.get("dificultad", "Principiante"),
+                "orden": int(leccion_data.get("orden", 1)),
+                "quiz": leccion_data.get("quiz", []),
+                "video_url": leccion_data.get("video_url", ""),
+                "fecha_creacion": datetime.now().isoformat(),
+                "creador": current_user["id"],
+                "basada_en_default": leccion_id  # Marca para saber que viene de una lección por defecto
+            }
+            
+            print(f"[DEBUG] Nueva lección a crear: {nueva_leccion}")
+            
+            # Insertar la nueva lección
+            result = await db.lecciones.insert_one(nueva_leccion)
+            
+            print(f"[DEBUG] Lección creada con ID: {str(result.inserted_id)}")
+            
+            return {
+                "mensaje": "Nueva lección creada basada en la lección por defecto",
+                "id": str(result.inserted_id),
+                "original_default_id": leccion_id
+            }
+        
+        # Para lecciones normales, proceder con la actualización tradicional
         # Verificar que la lección existe
         leccion = await db.lecciones.find_one({"_id": ObjectId(leccion_id)})
         if not leccion:
@@ -918,7 +977,7 @@ async def actualizar_leccion(
             "dificultad": leccion_data.get("dificultad", leccion["dificultad"]),
             "orden": int(leccion_data.get("orden", leccion["orden"])),
             "quiz": leccion_data.get("quiz", leccion.get("quiz", [])),
-            "video_url": leccion_data.get("video_url", leccion.get("video_url", "")),  # Incluir video_url
+            "video_url": leccion_data.get("video_url", leccion.get("video_url", "")),
             "fecha_modificacion": datetime.now().isoformat(),
             "modificador": current_user["id"]
         }
@@ -954,29 +1013,15 @@ async def eliminar_leccion(
         
         db = request.app.state.db
         
-        # Verificar si es una lección por defecto
+        # Si es una lección por defecto, simplemente retornamos éxito
+        # (Las lecciones por defecto no se pueden eliminar realmente)
         if leccion_id.startswith('default_'):
-            # Para lecciones por defecto, las marcamos como ocultas para este profesor
-            usuario_id = ObjectId(current_user["id"])
-            
-            # Agregar la lección a la lista de lecciones ocultas del profesor
-            await db.users.update_one(
-                {"_id": usuario_id},
-                {"$addToSet": {"lecciones_ocultas": leccion_id}}
-            )
-            
-            # También eliminar el progreso de esta lección de todos los usuarios
-            await db.users.update_many(
-                {},
-                {"$pull": {"progreso_lecciones": {"leccion_id": leccion_id}}}
-            )
-            
             return {
-                "mensaje": "Lección por defecto ocultada exitosamente",
+                "mensaje": "Lección eliminada exitosamente",
                 "id": leccion_id
             }
         
-        # Verificar que la lección existe en la BD
+        # Para lecciones normales, verificar que existe y eliminar
         leccion = await db.lecciones.find_one({"_id": ObjectId(leccion_id)})
         if not leccion:
             raise HTTPException(status_code=404, detail="Lección no encontrada")
@@ -1223,20 +1268,45 @@ Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 
         profesor = await db.users.find_one({"_id": usuario_id})
         lecciones_ocultas = profesor.get("lecciones_ocultas", []) if profesor else []
         
-        # Filtrar lecciones por defecto que no estén ocultas
-        lecciones_default_filtradas = [
-            l for l in lecciones_default 
-            if l["_id"] not in lecciones_ocultas
+        # Para cada lección por defecto, verificar si existe una personalizada
+        lecciones_default_finales = []
+        for leccion_default in lecciones_default:
+            default_id = leccion_default["_id"]
+            
+            # Saltar si está oculta
+            if default_id in lecciones_ocultas:
+                continue
+                
+            # Buscar si existe una lección personalizada basada en esta por defecto
+            leccion_personalizada = await db.lecciones.find_one({
+                "basada_en_default": default_id,
+                "creador": current_user["id"]
+            })
+            
+            if leccion_personalizada:
+                print(f"[DEBUG] Encontrada lección personalizada para {default_id}: {leccion_personalizada['_id']}")
+                # Usar la lección personalizada en lugar de la por defecto
+                leccion_personalizada["_id"] = str(leccion_personalizada["_id"])
+                if "id" not in leccion_personalizada:
+                    leccion_personalizada["id"] = leccion_personalizada["_id"]
+                lecciones_default_finales.append(leccion_personalizada)
+            else:
+                print(f"[DEBUG] No se encontró lección personalizada para {default_id}, usando la por defecto")
+                # Usar la lección por defecto original
+                lecciones_default_finales.append(leccion_default)
+        
+        # Combinar lecciones (personalizadas/por defecto) + lecciones del profesor
+        todas_las_lecciones = lecciones_default_finales.copy()
+        
+        # Filtrar lecciones del profesor que no sean personalizaciones de por defecto
+        lecciones_profesor_filtradas = [
+            l for l in lecciones_profesor 
+            if not l.get("basada_en_default")
         ]
         
-        # Combinar lecciones por defecto + lecciones del profesor
-        # Las lecciones por defecto van primero (orden 1 y 2)
-        # Las lecciones del profesor mantienen su orden original, ajustando si es necesario
-        todas_las_lecciones = lecciones_default_filtradas.copy()
-        
         # Ajustar el orden de las lecciones del profesor para evitar conflictos
-        orden_max = max([l["orden"] for l in lecciones_default_filtradas]) if lecciones_default_filtradas else 0
-        for leccion in lecciones_profesor:
+        orden_max = max([l["orden"] for l in lecciones_default_finales]) if lecciones_default_finales else 0
+        for leccion in lecciones_profesor_filtradas:
             # Si la lección del profesor tiene orden que no conflicta con las por defecto, mantenerlo
             # Si no, ajustar el orden
             if leccion["orden"] <= orden_max:
@@ -1279,8 +1349,33 @@ async def obtener_leccion_individual(
         
         # Si no se encuentra en BD, verificar lecciones por defecto
         if not leccion:
-            # Obtener lecciones por defecto
-            lecciones_default = [
+            print(f"[DEBUG] Buscando lección: {leccion_id}")
+            
+            # Primero buscar si hay una lección personalizada para esta lección por defecto
+            # Si leccion_id es numérico (1, 2, etc.), verificar si hay personalizada para default_1, default_2, etc.
+            if leccion_id.isdigit():
+                default_id = f"default_{leccion_id}"
+                print(f"[DEBUG] Buscando lección personalizada para: {default_id}")
+                
+                # Buscar lección personalizada basada en esta por defecto
+                # Mostrar a todos los estudiantes la primera lección personalizada encontrada
+                leccion_personalizada = await db.lecciones.find_one({
+                    "basada_en_default": default_id
+                })
+                
+                if leccion_personalizada:
+                    print(f"[DEBUG] Encontrada lección personalizada: {leccion_personalizada['_id']}")
+                    leccion_personalizada["_id"] = str(leccion_personalizada["_id"])
+                    if "id" not in leccion_personalizada:
+                        leccion_personalizada["id"] = leccion_personalizada["_id"]
+                    leccion = leccion_personalizada
+                else:
+                    print(f"[DEBUG] No se encontró lección personalizada, usando por defecto")
+            
+            # Si no encontramos lección personalizada, usar lecciones por defecto
+            if not leccion:
+                # Obtener lecciones por defecto
+                lecciones_default = [
                 {
                     "_id": "default_1",
                     "id": 1,
@@ -1463,15 +1558,15 @@ Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 
                     "dificultad": "Principiante",
                     "orden": 2
                 }
-            ]
-            
-            # Buscar en lecciones por defecto
-            for leccion_default in lecciones_default:
-                if (leccion_default["_id"] == leccion_id or 
-                    str(leccion_default["id"]) == leccion_id or
-                    leccion_default["id"] == int(leccion_id) if leccion_id.isdigit() else False):
-                    leccion = leccion_default
-                    break
+                ]
+                
+                # Buscar en lecciones por defecto
+                for leccion_default in lecciones_default:
+                    if (leccion_default["_id"] == leccion_id or 
+                        str(leccion_default["id"]) == leccion_id or
+                        leccion_default["id"] == int(leccion_id) if leccion_id.isdigit() else False):
+                        leccion = leccion_default
+                        break
         
         if not leccion:
             raise HTTPException(status_code=404, detail="Lección no encontrada")
