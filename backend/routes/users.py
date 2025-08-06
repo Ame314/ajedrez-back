@@ -721,6 +721,9 @@ Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 
         lecciones_profesores = []
         async for leccion in db.lecciones.find({}).sort("orden", 1):
             leccion["_id"] = str(leccion["_id"])
+            # Asegurar que todas las lecciones tengan un campo 'id' para navegación
+            if "id" not in leccion:
+                leccion["id"] = leccion["_id"]
             # Asegurar campos para lecciones antiguas
             if "fecha_creacion" not in leccion:
                 leccion["fecha_creacion"] = "2024-01-01T00:00:00"
@@ -1205,6 +1208,9 @@ Resuelve problemas tácticos diariamente. Comienza con tácticas simples de 1-2 
         lecciones_profesor = []
         async for leccion in db.lecciones.find({}).sort("orden", 1):
             leccion["_id"] = str(leccion["_id"])
+            # Asegurar que todas las lecciones tengan un campo 'id' para navegación
+            if "id" not in leccion:
+                leccion["id"] = leccion["_id"]
             # Asegurar campos para lecciones antiguas
             if "fecha_creacion" not in leccion:
                 leccion["fecha_creacion"] = "2024-01-01T00:00:00"
