@@ -106,6 +106,18 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                 game_id = manager.user_to_game.get(username)
                 if game_id:
                     await manager.handle_game_action(game_id, "draw_offer", username)
+                    
+            elif message_type == "accept_draw":
+                # Accept draw offer
+                game_id = manager.user_to_game.get(username)
+                if game_id:
+                    await manager.handle_game_action(game_id, "accept_draw", username)
+                    
+            elif message_type == "decline_draw":
+                # Decline draw offer
+                game_id = manager.user_to_game.get(username)
+                if game_id:
+                    await manager.handle_game_action(game_id, "decline_draw", username)
                 
             elif message_type == "game_action":
                 # Acciones del juego (resignar, ofrecer tablas, etc.)
