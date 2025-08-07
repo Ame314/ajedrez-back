@@ -113,6 +113,38 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                     "type": "pong"
                 }, username)
                 
+            elif message_type == "join_game":
+                # Unirse a una partida específica
+                game_id = message.get("game_id")
+                
+                if game_id and game_id in manager.active_games:
+                    # Verificar que el usuario pertenece a esta partida
+                    game = manager.active_games[game_id]
+                    if username in [game["white_player"], game["black_player"]]:
+                        # Asociar usuario con la partida
+                        manager.user_to_game[username] = game_id
+                        
+                        # Enviar estado actual del juego
+                        await manager.send_personal_message({
+                            "type": "game_state",
+                            "fen": game["current_fen"],
+                            "moves": game["moves"],
+                            "turn": game["current_turn"],
+                            "status": game["status"]
+                        }, username)
+                        
+                        print(f"Usuario {username} se unió a la partida {game_id}")
+                    else:
+                        await manager.send_personal_message({
+                            "type": "error",
+                            "message": "No tienes acceso a esta partida"
+                        }, username)
+                else:
+                    await manager.send_personal_message({
+                        "type": "error",
+                        "message": "Partida no encontrada"
+                    }, username)
+                
     except WebSocketDisconnect:
         print(f"WebSocket desconectado para usuario: {username}")
         await manager.disconnect(username)
