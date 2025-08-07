@@ -49,30 +49,60 @@ def jugar_con_stockfish(movimientos: list[str] = Body(...)):
     if stockfish is None:
         raise HTTPException(status_code=500, detail="Motor de análisis no disponible")
     
+    print(f"Movimientos recibidos: {movimientos}")
+    
+    # Validar entrada
+    if not isinstance(movimientos, list):
+        raise HTTPException(status_code=400, detail="Se esperaba una lista de movimientos")
+    
+    # Convertir movimientos a UCI
     movimientos_uci = convertir_a_uci(movimientos)
+    print(f"Movimientos UCI: {movimientos_uci}")
 
-    if not movimientos_uci:
-        raise HTTPException(status_code=400, detail="Movimientos inválidos")
+    # Verificar que la conversión fue exitosa
+    if len(movimientos) > 0 and len(movimientos_uci) == 0:
+        raise HTTPException(status_code=400, detail="No se pudieron convertir los movimientos a UCI")
+    
+    # Si hay movimientos pero la conversión falló parcialmente
+    if len(movimientos) > 0 and len(movimientos_uci) != len(movimientos):
+        print(f"Advertencia: Se esperaban {len(movimientos)} movimientos UCI, pero se obtuvieron {len(movimientos_uci)}")
 
     try:
+        # Configurar posición en Stockfish
         stockfish.set_position(movimientos_uci)
+        
+        # Verificar que la posición es válida
+        current_fen = stockfish.get_fen_position()
+        if not current_fen:
+            raise HTTPException(status_code=400, detail="Posición de ajedrez inválida")
+        
+        print(f"FEN actual en Stockfish: {current_fen}")
 
+        # Obtener el mejor movimiento
         jugada_stockfish = stockfish.get_best_move()
+        print(f"Mejor movimiento de Stockfish: {jugada_stockfish}")
 
         if not jugada_stockfish:
-            return {"mensaje": "La partida ha terminado o no se puede continuar"}
+            return {
+                "mensaje": "La partida ha terminado o no se puede continuar",
+                "fen": current_fen,
+                "movimientos_totales": movimientos
+            }
 
-        movimientos_uci.append(jugada_stockfish)
-        stockfish.set_position(movimientos_uci)
+        # Aplicar el movimiento de Stockfish para obtener la nueva posición
+        nuevos_movimientos_uci = movimientos_uci + [jugada_stockfish]
+        stockfish.set_position(nuevos_movimientos_uci)
+        nuevo_fen = stockfish.get_fen_position()
 
         return {
             "jugada_stockfish": jugada_stockfish,
-            "fen": stockfish.get_fen_position(),
+            "fen": nuevo_fen,
             "movimientos_totales": movimientos + [jugada_stockfish],
             "comentario": f"Stockfish juega {jugada_stockfish}"
         }
     
     except Exception as e:
+        print(f"Error en jugar_con_stockfish: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al procesar con Stockfish: {str(e)}")
 
 

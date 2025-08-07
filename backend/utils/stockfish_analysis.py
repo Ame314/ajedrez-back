@@ -55,15 +55,27 @@ def convertir_a_uci(movimientos: list[str]) -> list[str]:
     tablero = chess.Board()
     jugadas_uci = []
 
-    for mov in movimientos:
+    print(f"Convirtiendo movimientos SAN a UCI: {movimientos}")
+
+    for i, mov in enumerate(movimientos):
         try:
-            jugada = tablero.parse_san(mov.strip())  # "e4" → objeto jugada
-            jugadas_uci.append(jugada.uci())         # objeto jugada → "e2e4"
+            mov_limpio = mov.strip()
+            print(f"Procesando movimiento {i+1}: '{mov_limpio}' en posición FEN: {tablero.fen()}")
+            
+            jugada = tablero.parse_san(mov_limpio)  # "e4" → objeto jugada
+            uci_move = jugada.uci()                 # objeto jugada → "e2e4"
+            jugadas_uci.append(uci_move)
             tablero.push(jugada)
+            
+            print(f"Movimiento {i+1} convertido: '{mov_limpio}' → '{uci_move}'")
+            
         except Exception as e:
-            print(f"Jugada inválida: {mov} - {e}")
+            print(f"Error al procesar movimiento {i+1} '{mov}': {e}")
+            print(f"FEN en el momento del error: {tablero.fen()}")
+            print(f"Movimientos válidos disponibles: {list(tablero.legal_moves)}")
             break
 
+    print(f"Conversión completada. Movimientos UCI: {jugadas_uci}")
     return jugadas_uci
 
 # Función para generar comentarios automáticos
