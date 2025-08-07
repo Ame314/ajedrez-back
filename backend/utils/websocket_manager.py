@@ -313,7 +313,11 @@ class ConnectionManager:
         move_message = {
             "type": "move",
             "game_id": game_id,
-            "move": move_data,
+            "from": move_data.get("from"),
+            "to": move_data.get("to"),
+            "promotion": move_data.get("promotion"),
+            "san": move_data.get("san"),
+            "fen": move_data.get("fen"),
             "current_turn": game["current_turn"],
             "move_number": len(game["moves"])
         }
