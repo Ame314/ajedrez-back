@@ -16,6 +16,8 @@ class ConnectionManager:
         self.active_games: Dict[str, Dict] = {}
         # Cola de jugadores buscando partida
         self.matchmaking_queue: List[str] = []
+        # ELO de jugadores en la cola de matchmaking
+        self.player_elos: Dict[str, int] = {}
         # Mapping de usuario a game_id
         self.user_to_game: Dict[str, str] = {}
 
@@ -53,6 +55,7 @@ class ConnectionManager:
         # Remover de cola de matchmaking si está
         if username in self.matchmaking_queue:
             self.matchmaking_queue.remove(username)
+            self.player_elos.pop(username, None)  # Limpiar ELO también
             print(f"Usuario {username} removido de cola de matchmaking")
         
         # Si está en una partida, notificar al oponente
@@ -169,7 +172,9 @@ class ConnectionManager:
         # Añadir a la cola si no está ya
         if username not in self.matchmaking_queue:
             self.matchmaking_queue.append(username)
+            self.player_elos[username] = user_elo  # Guardar ELO del jugador
             print(f"Cola de matchmaking actualizada: {self.matchmaking_queue}")
+            print(f"ELOs en cola: {self.player_elos}")
             
             # Buscar oponente inmediatamente
             await self.process_matchmaking(username, user_elo)
@@ -189,8 +194,9 @@ class ConnectionManager:
                 break
         
         if opponent:
-            print(f"Oponente encontrado: {opponent} para {username}")
-            await self.create_match(username, opponent, user_elo)
+            opponent_elo = self.player_elos.get(opponent, 1200)  # Obtener ELO del oponente
+            print(f"Oponente encontrado: {opponent} (ELO: {opponent_elo}) para {username} (ELO: {user_elo})")
+            await self.create_match(username, opponent, user_elo, opponent_elo)
         else:
             print(f"No se encontró oponente para {username}. Esperando...")
             await self.send_personal_message({
@@ -210,16 +216,23 @@ class ConnectionManager:
         # Remover de la cola
         if player1 in self.matchmaking_queue:
             self.matchmaking_queue.remove(player1)
+            self.player_elos.pop(player1, None)  # Limpiar ELO
         if player2 in self.matchmaking_queue:
             self.matchmaking_queue.remove(player2)
+            self.player_elos.pop(player2, None)  # Limpiar ELO
         
         # Determinar colores aleatoriamente
-        if random.choice([True, False]):
+        random_choice = random.choice([True, False])
+        print(f"Aleatorización de colores: {random_choice}")
+        
+        if random_choice:
             white_player, black_player = player1, player2
             white_elo, black_elo = player1_elo, player2_elo
+            print(f"Asignación: {player1} (blancas) vs {player2} (negras)")
         else:
             white_player, black_player = player2, player1
             white_elo, black_elo = player2_elo, player1_elo
+            print(f"Asignación: {player2} (blancas) vs {player1} (negras)")
         
         game_id = self.create_game(white_player, black_player, white_elo, black_elo)
         
