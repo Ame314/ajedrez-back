@@ -1,8 +1,43 @@
 from fastapi import APIRouter, HTTPException, Request, Body
+from pydantic import BaseModel
+from typing import Optional
 from bson import ObjectId
 from utils.stockfish_analysis import analizar_movimientos, convertir_a_uci, get_stockfish
 
 router = APIRouter()
+
+# Modelo para el request de Stockfish
+class StockfishRequest(BaseModel):
+    movimientos: list[str]
+    dificultad: Optional[str] = "intermedio"
+
+# Configuraciones de dificultad
+DIFFICULTY_SETTINGS = {
+    "principiante": {
+        "depth": 1,
+        "elo": 800,
+        "descripcion": "Nivel principiante (~800 ELO) - Ideal para jugadores que están aprendiendo",
+        "tiempo": 0.1
+    },
+    "intermedio": {
+        "depth": 8,
+        "elo": 1500,
+        "descripcion": "Nivel intermedio (~1500 ELO) - Para jugadores con conocimientos básicos",
+        "tiempo": 0.5
+    },
+    "experto": {
+        "depth": 15,
+        "elo": 2200,
+        "descripcion": "Nivel experto (~2200 ELO) - Para jugadores avanzados",
+        "tiempo": 1.0
+    },
+    "gran_maestro": {
+        "depth": 20,
+        "elo": 2800,
+        "descripcion": "Nivel gran maestro (~2800 ELO) - Máximo desafío",
+        "tiempo": 2.0
+    }
+}
 
 
 @router.get("/analisis/{partida_id}")
@@ -41,7 +76,7 @@ async def analizar_partida(partida_id: str, request: Request):
 
 
 @router.post("/juga-stockfish")
-def jugar_con_stockfish(movimientos: list[str] = Body(...)):
+def jugar_con_stockfish(request: StockfishRequest):
     # Obtener instancia de Stockfish
     stockfish = get_stockfish()
     
@@ -49,11 +84,25 @@ def jugar_con_stockfish(movimientos: list[str] = Body(...)):
     if stockfish is None:
         raise HTTPException(status_code=500, detail="Motor de análisis no disponible")
     
+    movimientos = request.movimientos
+    dificultad = request.dificultad
+    
     print(f"Movimientos recibidos: {movimientos}")
+    print(f"Dificultad seleccionada: {dificultad}")
     
     # Validar entrada
     if not isinstance(movimientos, list):
         raise HTTPException(status_code=400, detail="Se esperaba una lista de movimientos")
+    
+    # Validar dificultad
+    if dificultad not in DIFFICULTY_SETTINGS:
+        raise HTTPException(status_code=400, detail=f"Dificultad '{dificultad}' no válida. Opciones: {list(DIFFICULTY_SETTINGS.keys())}")
+    
+    # Configurar dificultad
+    difficulty_config = DIFFICULTY_SETTINGS[dificultad]
+    stockfish.set_depth(difficulty_config["depth"])
+    
+    print(f"Configurando Stockfish - Profundidad: {difficulty_config['depth']}, ELO aproximado: {difficulty_config['elo']}")
     
     # Convertir movimientos a UCI
     movimientos_uci = convertir_a_uci(movimientos)
@@ -86,7 +135,9 @@ def jugar_con_stockfish(movimientos: list[str] = Body(...)):
             return {
                 "mensaje": "La partida ha terminado o no se puede continuar",
                 "fen": current_fen,
-                "movimientos_totales": movimientos
+                "movimientos_totales": movimientos,
+                "dificultad": dificultad,
+                "elo_aproximado": difficulty_config["elo"]
             }
 
         # Aplicar el movimiento de Stockfish para obtener la nueva posición
@@ -98,12 +149,24 @@ def jugar_con_stockfish(movimientos: list[str] = Body(...)):
             "jugada_stockfish": jugada_stockfish,
             "fen": nuevo_fen,
             "movimientos_totales": movimientos + [jugada_stockfish],
-            "comentario": f"Stockfish juega {jugada_stockfish}"
+            "comentario": f"Stockfish ({difficulty_config['elo']} ELO) juega {jugada_stockfish}",
+            "dificultad": dificultad,
+            "elo_aproximado": difficulty_config["elo"]
         }
     
     except Exception as e:
         print(f"Error en jugar_con_stockfish: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al procesar con Stockfish: {str(e)}")
+
+
+@router.get("/stockfish-dificultades")
+def obtener_dificultades():
+    """Endpoint para obtener información sobre los niveles de dificultad disponibles"""
+    return {
+        "dificultades": DIFFICULTY_SETTINGS,
+        "descripcion": "Niveles de dificultad disponibles para Stockfish",
+        "niveles_disponibles": list(DIFFICULTY_SETTINGS.keys())
+    }
 
 
 @router.post("/analizar-tablero")
