@@ -1,9 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Body
 from bson import ObjectId
-from utils.stockfish_analysis import analizar_movimientos, convertir_a_uci, init_stockfish
-
-# Inicializar Stockfish de forma segura
-stockfish = init_stockfish()
+from utils.stockfish_analysis import analizar_movimientos, convertir_a_uci, get_stockfish
 
 router = APIRouter()
 
@@ -45,47 +42,69 @@ async def analizar_partida(partida_id: str, request: Request):
 
 @router.post("/juga-stockfish")
 def jugar_con_stockfish(movimientos: list[str] = Body(...)):
+    # Obtener instancia de Stockfish
+    stockfish = get_stockfish()
+    
+    # Verificar que Stockfish esté disponible
+    if stockfish is None:
+        raise HTTPException(status_code=500, detail="Motor de análisis no disponible")
+    
     movimientos_uci = convertir_a_uci(movimientos)
 
     if not movimientos_uci:
         raise HTTPException(status_code=400, detail="Movimientos inválidos")
 
-    stockfish.set_position(movimientos_uci)
+    try:
+        stockfish.set_position(movimientos_uci)
 
-    jugada_stockfish = stockfish.get_best_move()
+        jugada_stockfish = stockfish.get_best_move()
 
-    if not jugada_stockfish:
-        return {"mensaje": "La partida ha terminado o no se puede continuar"}
+        if not jugada_stockfish:
+            return {"mensaje": "La partida ha terminado o no se puede continuar"}
 
-    movimientos_uci.append(jugada_stockfish)
-    stockfish.set_position(movimientos_uci)
+        movimientos_uci.append(jugada_stockfish)
+        stockfish.set_position(movimientos_uci)
 
-    return {
-        "jugada_stockfish": jugada_stockfish,
-        "fen": stockfish.get_fen_position(),
-        "movimientos_totales": movimientos + [jugada_stockfish],
-        "comentario": f"Stockfish juega {jugada_stockfish}"
-    }
+        return {
+            "jugada_stockfish": jugada_stockfish,
+            "fen": stockfish.get_fen_position(),
+            "movimientos_totales": movimientos + [jugada_stockfish],
+            "comentario": f"Stockfish juega {jugada_stockfish}"
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar con Stockfish: {str(e)}")
 
 
 @router.post("/analizar-tablero")
 def sugerencias_de_jugada(movimientos: list[str] = Body(...)):
+    # Obtener instancia de Stockfish
+    stockfish = get_stockfish()
+    
+    # Verificar que Stockfish esté disponible
+    if stockfish is None:
+        raise HTTPException(status_code=500, detail="Motor de análisis no disponible")
+    
     movimientos_uci = convertir_a_uci(movimientos)
 
     if not movimientos_uci and movimientos:
         raise HTTPException(status_code=400, detail="Movimientos inválidos")
 
-    stockfish.set_position(movimientos_uci)
+    try:
+        stockfish.set_position(movimientos_uci)
 
-    # Determinar el turno actual en base al número de movimientos
-    turno = "blancas" if len(movimientos_uci) % 2 == 0 else "negras"
+        # Determinar el turno actual en base al número de movimientos
+        turno = "blancas" if len(movimientos_uci) % 2 == 0 else "negras"
 
-    mejores_jugadas = stockfish.get_top_moves(3)
+        mejores_jugadas = stockfish.get_top_moves(3)
 
-    return {
-        "turno_actual": turno,
-        "mejores_jugadas": mejores_jugadas,
-        "fen": stockfish.get_fen_position(),
-        "comentario": f"Las mejores jugadas para las {turno} son: " +
-                      ", ".join([f"{m['Move']} (eval: {m['Centipawn']})" for m in mejores_jugadas])
-    }
+        return {
+            "turno_actual": turno,
+            "mejores_jugadas": mejores_jugadas,
+            "fen": stockfish.get_fen_position(),
+            "comentario": f"Las mejores jugadas para las {turno} son: " +
+                          ", ".join([f"{m['Move']} (eval: {m['Centipawn']})" for m in mejores_jugadas])
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar con Stockfish: {str(e)}")

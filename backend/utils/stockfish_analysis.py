@@ -1,32 +1,54 @@
 import chess
 from stockfish import Stockfish
+import os
+
+# Variable global para la instancia de Stockfish
+_stockfish_instance = None
 
 # Función para inicializar Stockfish de forma segura
 def init_stockfish():
+    # Función para probar si Stockfish funciona en una ruta
+    def test_stockfish_path(path):
+        try:
+            # Crear instancia temporal para probar
+            temp_stockfish = Stockfish(path=path, depth=15)
+            # Verificar que funcione haciendo una llamada simple
+            temp_stockfish.get_fen_position()
+            return True
+        except Exception:
+            return False
+    
     # Lista de posibles rutas donde puede estar Stockfish
     possible_paths = [
+        "/usr/games/stockfish",         # Instalación apt en contenedor Docker
+        "/usr/local/bin/stockfish",     # Instalación manual/compilada
         "/opt/homebrew/bin/stockfish",  # macOS con Homebrew (Apple Silicon)
-        "/usr/local/bin/stockfish",     # macOS con Homebrew (Intel)
-        "/usr/bin/stockfish",           # Linux
+        "/usr/bin/stockfish",           # Linux estándar
         "stockfish"                     # PATH del sistema
     ]
     
+    # Intentar con cada ruta
     for path in possible_paths:
-        try:
-            stockfish = Stockfish(path=path, depth=15)
-            # Verificar que funcione
-            stockfish.get_fen_position()
-            print(f"Stockfish inicializado correctamente en: {path}")
-            return stockfish
-        except Exception as e:
-            print(f"Error al inicializar Stockfish en {path}: {e}")
-            continue
+        if test_stockfish_path(path):
+            try:
+                stockfish = Stockfish(path=path, depth=15)
+                print(f"Stockfish inicializado correctamente en: {path}")
+                return stockfish
+            except Exception as e:
+                print(f"Error al inicializar Stockfish en {path}: {e}")
+                continue
+        else:
+            print(f"Stockfish no funciona en: {path}")
     
     print("No se pudo inicializar Stockfish en ninguna ubicación")
     return None
 
-# Inicializar Stockfish de forma segura
-stockfish = init_stockfish()
+# Función para obtener la instancia de Stockfish (lazy loading)
+def get_stockfish():
+    global _stockfish_instance
+    if _stockfish_instance is None:
+        _stockfish_instance = init_stockfish()
+    return _stockfish_instance
 
 # Función para convertir jugadas de notación algebraica (SAN) a notación UCI
 def convertir_a_uci(movimientos: list[str]) -> list[str]:
@@ -64,6 +86,9 @@ def generar_comentario(eval_antes, eval_despues, best_move, move):
 
 # Función principal de análisis
 def analizar_movimientos(movimientos: list[str]):
+    # Obtener instancia de Stockfish
+    stockfish = get_stockfish()
+    
     # Verificar que Stockfish esté disponible
     if stockfish is None:
         return [{"error": "Motor de análisis no disponible. Stockfish no está instalado."}]
