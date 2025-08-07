@@ -96,17 +96,29 @@ class ConnectionManager:
 
     async def send_game_message(self, message: dict, game_id: str):
         """Envía un mensaje a todos los jugadores de una partida específica"""
+        print(f"send_game_message llamado: game_id={game_id}, message_type={message.get('type')}")
+        
         if game_id in self.active_games:
             game = self.active_games[game_id]
             players = [game["white_player"], game["black_player"]]
             
+            print(f"Enviando mensaje a jugadores: {players}")
+            
             sent_count = 0
             for player in players:
+                print(f"Enviando a {player}...")
                 if await self.send_personal_message(message, player):
                     sent_count += 1
+                    print(f"✓ Mensaje enviado exitosamente a {player}")
+                else:
+                    print(f"✗ Error enviando mensaje a {player}")
             
+            print(f"Mensajes enviados: {sent_count}/{len(players)}")
             return sent_count == len(players)
-        return False
+        else:
+            print(f"Error: Partida {game_id} no encontrada en active_games")
+            print(f"Partidas activas: {list(self.active_games.keys())}")
+            return False
 
     def create_game(self, white_player: str, black_player: str, white_elo: int, black_elo: int) -> str:
         """Crea una nueva partida"""
@@ -285,23 +297,36 @@ class ConnectionManager:
 
     async def handle_move(self, game_id: str, move_data: dict, player: str) -> bool:
         """Procesa un movimiento en una partida"""
+        print(f"handle_move llamado: game_id={game_id}, player={player}, move_data={move_data}")
+        
         if game_id not in self.active_games:
             print(f"Error: Partida {game_id} no encontrada")
+            print(f"Partidas activas disponibles: {list(self.active_games.keys())}")
             return False
         
         game = self.active_games[game_id]
+        print(f"Partida encontrada: {game}")
         
         # Verificar que es el turno del jugador
         current_turn = game["current_turn"]
-        if ((current_turn == "white" and player != game["white_player"]) or
-            (current_turn == "black" and player != game["black_player"])):
+        white_player = game["white_player"]
+        black_player = game["black_player"]
+        
+        print(f"Verificando turno: current_turn={current_turn}, player={player}")
+        print(f"white_player={white_player}, black_player={black_player}")
+        
+        if ((current_turn == "white" and player != white_player) or
+            (current_turn == "black" and player != black_player)):
             print(f"Error: No es el turno de {player}")
             return False
         
         # Validar formato del movimiento
+        print(f"Validando formato del movimiento...")
         if not validate_move_format(move_data):
             print(f"Error: Formato de movimiento inválido: {move_data}")
             return False
+        
+        print(f"Formato de movimiento válido")
         
         # Actualizar estado del juego
         game["moves"].append(move_data)
@@ -309,7 +334,9 @@ class ConnectionManager:
         game["current_turn"] = "black" if current_turn == "white" else "white"
         game["updated_at"] = datetime.utcnow()
         
-        # Notificar el movimiento a ambos jugadores
+        print(f"Estado del juego actualizado. Nuevo turno: {game['current_turn']}")
+        
+        # Notificar el movimiento solo al oponente (no al jugador que hizo el movimiento)
         move_message = {
             "type": "move",
             "game_id": game_id,
@@ -322,13 +349,17 @@ class ConnectionManager:
             "move_number": len(game["moves"])
         }
         
-        success = await self.send_game_message(move_message, game_id)
+        # Determinar el oponente
+        opponent = black_player if player == white_player else white_player
+        
+        print(f"Enviando mensaje de movimiento solo al oponente: {opponent}")
+        success = await self.send_personal_message(move_message, opponent)
         
         if success:
-            print(f"Movimiento procesado exitosamente en partida {game_id}")
+            print(f"Movimiento notificado exitosamente al oponente {opponent} en partida {game_id}")
             return True
         else:
-            print(f"Error enviando movimiento en partida {game_id}")
+            print(f"Error enviando movimiento al oponente {opponent} en partida {game_id}")
             return False
 
     async def handle_game_action(self, game_id: str, action: str, player: str):

@@ -57,8 +57,11 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                 
             elif message_type == "move":
                 # Realizar movimiento
-                # Obtener game_id desde el usuario actual
-                game_id = manager.user_to_game.get(username)
+                # Usar game_id del mensaje si está disponible, sino obtenerlo del usuario
+                message_game_id = message.get("game_id")
+                user_game_id = manager.user_to_game.get(username)
+                game_id = message_game_id or user_game_id
+                
                 move_data = {
                     "from": message.get("from"),
                     "to": message.get("to"),
@@ -67,7 +70,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                     "fen": message.get("fen")
                 }
                 
-                print(f"Movimiento recibido de {username}: game_id={game_id}, move={move_data}")
+                print(f"Movimiento recibido de {username}:")
+                print(f"  - message_game_id: {message_game_id}")
+                print(f"  - user_game_id: {user_game_id}")
+                print(f"  - game_id final: {game_id}")
+                print(f"  - move_data: {move_data}")
+                print(f"  - user_to_game mapping: {manager.user_to_game}")
+                print(f"  - active_games: {list(manager.active_games.keys())}")
                 
                 if game_id and move_data.get("from") and move_data.get("to"):
                     success = await manager.handle_move(game_id, move_data, username)
@@ -77,6 +86,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                             "type": "error",
                             "message": "Error procesando movimiento"
                         }, username)
+                    else:
+                        print(f"Movimiento procesado exitosamente para {username}")
                 else:
                     print(f"Datos de movimiento incompletos: game_id={game_id}, move_data={move_data}")
                     await manager.send_personal_message({
