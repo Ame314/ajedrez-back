@@ -20,19 +20,19 @@ def is_valid_piece(piece: str) -> bool:
 
 def validate_move_format(move_data: dict) -> bool:
     """Validación básica de formato de movimiento"""
-    required_fields = ['from_square', 'to_square', 'piece', 'san', 'fen']
+    required_fields = ['from', 'to', 'san', 'fen']
     
     for field in required_fields:
         if field not in move_data:
+            print(f"Campo requerido faltante: {field}")
             return False
     
-    if not is_valid_square(move_data['from_square']):
+    if not is_valid_square(move_data['from']):
+        print(f"Casilla origen inválida: {move_data['from']}")
         return False
     
-    if not is_valid_square(move_data['to_square']):
-        return False
-    
-    if not is_valid_piece(move_data['piece']):
+    if not is_valid_square(move_data['to']):
+        print(f"Casilla destino inválida: {move_data['to']}")
         return False
     
     return True

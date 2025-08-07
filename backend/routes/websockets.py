@@ -19,9 +19,12 @@ async def get_current_user_ws(token: str):
 @router.websocket("/ws/{token}")
 async def websocket_endpoint(websocket: WebSocket, token: str):
     """Endpoint principal de WebSocket para conexiones de usuarios"""
+    print(f"WebSocket connection attempt with token: {token[:50]}...")
+    
     username = await get_current_user_ws(token)
     
     if not username:
+        print(f"Token inválido para WebSocket: {token[:50]}...")
         await websocket.close(code=4001, reason="Token inválido")
         return
     
@@ -31,7 +34,9 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
     try:
         while True:
             # Recibir mensaje del cliente
+            print(f"Esperando mensaje de {username}...")
             data = await websocket.receive_text()
+            print(f"Datos recibidos de {username}: {data}")
             message = json.loads(data)
             
             message_type = message.get("type")
