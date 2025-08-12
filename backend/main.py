@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import asyncio
 from config import MONGODB_URL, DATABASE_NAME
+# from utils.puzzle_scheduler import puzzle_scheduler  # Temporalmente deshabilitado
 
 from routes import users, games, puzzles, lessons_eval, websockets, analysis
 
@@ -36,6 +37,14 @@ async def startup_db_client():
             
             app.state.db = client[DATABASE_NAME]
             print(f"✅ Conexión exitosa a MongoDB - Base de datos: {DATABASE_NAME}")
+            
+            # Inicializar el scheduler de puzzles (temporalmente deshabilitado)
+            # try:
+            #     await puzzle_scheduler.start()
+            #     print("✅ Scheduler de puzzles iniciado")
+            # except Exception as e:
+            #     print(f"⚠️ Error iniciando scheduler de puzzles: {e}")
+            
             return
             
         except Exception as e:
@@ -49,6 +58,14 @@ async def startup_db_client():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    # Detener el scheduler de puzzles (temporalmente deshabilitado)
+    # try:
+    #     await puzzle_scheduler.stop()
+    #     print("✅ Scheduler de puzzles detenido")
+    # except Exception as e:
+    #     print(f"⚠️ Error deteniendo scheduler de puzzles: {e}")
+    
+    # Cerrar conexión a MongoDB
     if hasattr(app.state, 'db'):
         app.state.db.client.close()
         print("✅ Conexión a MongoDB cerrada")
