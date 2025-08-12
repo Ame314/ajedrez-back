@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any
+from models.puzzle_model import PuzzleModel
+from utils.puzzle_database import get_puzzles_by_category
 
 router = APIRouter(prefix="/puzzles", tags=["puzzles"])
 
@@ -30,6 +32,15 @@ async def get_puzzle_categories():
             }
         ]
     }
+
+@router.get("/category/{category_id}")
+async def get_puzzles_by_category_endpoint(category_id: str):
+    """Obtiene puzzles de una categoría específica"""
+    try:
+        puzzles = await get_puzzles_by_category(category_id)
+        return puzzles
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener puzzles: {str(e)}")
 
 @router.get("/test")
 async def test_puzzles():
