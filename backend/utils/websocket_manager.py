@@ -33,7 +33,78 @@ class ConnectionManager:
                 pass
         
         self.active_connections[username] = websocket
-        print(f"Usuario {username} conectado. Conexiones activas: {len(self.active_connections)}")
+        print(f"Usuario {username} conectado. Total conexiones: {len(self.active_connections)}")
+
+    async def save_finished_game(self, game_data: Dict):
+        """Guarda una partida terminada en la base de datos y actualiza estadísticas"""
+        try:
+            from models.game import Game
+            from config import db
+            
+            # Buscar usuarios
+            white = await db.users.find_one({"username": game_data["white_player"]})
+            black = await db.users.find_one({"username": game_data["black_player"]})
+
+            if not white or not black:
+                print(f"Error: Usuario no encontrado - white: {white}, black: {black}")
+                return False
+
+            # Calcular resultado numérico para blancos
+            resultado_blancos = {"1-0": 1.0, "0-1": 0.0, "1/2-1/2": 0.5}.get(game_data["result"], 0.5)
+
+            # Calcular nuevos ELO usando función existente
+            from routes.games import calcular_nuevo_elo
+            nuevo_elo_blancos = calcular_nuevo_elo(white["elo"], black["elo"], resultado_blancos)
+            nuevo_elo_negras = calcular_nuevo_elo(black["elo"], white["elo"], 1 - resultado_blancos)
+
+            # Preparar datos de la partida
+            partida_dict = {
+                "white_player": game_data["white_player"],
+                "black_player": game_data["black_player"],
+                "white_elo": white["elo"],
+                "black_elo": black["elo"],
+                "moves": [move["san"] for move in game_data["moves"]],
+                "result_code": game_data["result"],
+                "winner": game_data["winner"],
+                "date_played": game_data["created_at"],
+                "reason": game_data.get("reason", "normal")
+            }
+
+            # Guardar partida en la base de datos
+            result = await db.games.insert_one(partida_dict)
+
+            # Actualizar estadísticas de usuarios
+            await db.users.update_one(
+                {"username": game_data["white_player"]},
+                {"$set": {"elo": nuevo_elo_blancos},
+                 "$inc": {
+                     "games_played": 1,
+                     "games_won": 1 if game_data["result"] == "1-0" else 0,
+                     "games_lost": 1 if game_data["result"] == "0-1" else 0,
+                     "games_drawn": 1 if game_data["result"] == "1/2-1/2" else 0
+                 }}
+            )
+
+            await db.users.update_one(
+                {"username": game_data["black_player"]},
+                {"$set": {"elo": nuevo_elo_negras},
+                 "$inc": {
+                     "games_played": 1,
+                     "games_won": 1 if game_data["result"] == "0-1" else 0,
+                     "games_lost": 1 if game_data["result"] == "1-0" else 0,
+                     "games_drawn": 1 if game_data["result"] == "1/2-1/2" else 0
+                 }}
+            )
+
+            print(f"Partida guardada exitosamente: ID {result.inserted_id}")
+            print(f"Nuevos ELOs - {game_data['white_player']}: {nuevo_elo_blancos}, {game_data['black_player']}: {nuevo_elo_negras}")
+            return True
+
+        except Exception as e:
+            print(f"Error al guardar partida: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
         
         # Enviar confirmación de conexión
         await self.send_personal_message({
@@ -349,6 +420,41 @@ class ConnectionManager:
         
         print(f"Estado del juego actualizado. Nuevo turno: {game['current_turn']}")
         
+        # Verificar si la partida ha terminado (jaque mate, empate, etc.)
+        game_status = move_data.get("game_status", "active")
+        if game_status in ["checkmate", "stalemate", "draw"]:
+            game["status"] = "finished"
+            
+            if game_status == "checkmate":
+                # El jugador que hizo el movimiento da jaque mate
+                game["result"] = "1-0" if player == white_player else "0-1"
+                game["winner"] = player
+                game["reason"] = "checkmate"
+            else:
+                # Empate por cualquier motivo
+                game["result"] = "1/2-1/2"
+                game["winner"] = "draw"
+                game["reason"] = "stalemate" if game_status == "stalemate" else "draw"
+            
+            # Notificar final de partida
+            await self.send_game_message({
+                "type": "game_end",
+                "result": game["result"],
+                "winner": game["winner"],
+                "reason": game["reason"]
+            }, game_id)
+            
+            # Guardar partida automáticamente
+            await self.save_finished_game(game)
+            
+            # Limpiar mapeos
+            if white_player in self.user_to_game:
+                del self.user_to_game[white_player]
+            if black_player in self.user_to_game:
+                del self.user_to_game[black_player]
+            
+            return True
+        
         # Notificar el movimiento solo al oponente (no al jugador que hizo el movimiento)
         move_message = {
             "type": "move",
@@ -392,6 +498,8 @@ class ConnectionManager:
                 game["result"] = "1-0"
                 game["winner"] = game["white_player"]
             
+            game["reason"] = "resignation"
+            
             await self.send_game_message({
                 "type": "game_end",
                 "result": game["result"],
@@ -400,9 +508,14 @@ class ConnectionManager:
                 "resigned_by": player
             }, game_id)
             
+            # Guardar partida automáticamente
+            await self.save_finished_game(game)
+            
             # Limpiar mapeos
-            del self.user_to_game[game["white_player"]]
-            del self.user_to_game[game["black_player"]]
+            if game["white_player"] in self.user_to_game:
+                del self.user_to_game[game["white_player"]]
+            if game["black_player"] in self.user_to_game:
+                del self.user_to_game[game["black_player"]]
         
         elif action == "draw_offer":
             # Ofrecer tablas
@@ -418,6 +531,7 @@ class ConnectionManager:
             game["status"] = "finished"
             game["result"] = "1/2-1/2"
             game["winner"] = "draw"
+            game["reason"] = "mutual_agreement"
             
             await self.send_game_message({
                 "type": "game_end",
@@ -426,9 +540,14 @@ class ConnectionManager:
                 "reason": "mutual_agreement"
             }, game_id)
             
+            # Guardar partida automáticamente
+            await self.save_finished_game(game)
+            
             # Limpiar mapeos
-            del self.user_to_game[game["white_player"]]
-            del self.user_to_game[game["black_player"]]
+            if game["white_player"] in self.user_to_game:
+                del self.user_to_game[game["white_player"]]
+            if game["black_player"] in self.user_to_game:
+                del self.user_to_game[game["black_player"]]
             
         elif action == "decline_draw":
             # Rechazar tablas

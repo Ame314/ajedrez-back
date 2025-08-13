@@ -364,3 +364,59 @@ async def get_puzzle_stats():
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error obteniendo estadísticas: {str(e)}")
+
+@router.post("/resolver-puzzle")
+async def resolver_puzzle(puzzle_data: dict):
+    """Registra cuando un usuario resuelve un puzzle"""
+    try:
+        from datetime import datetime
+        from dependencies import get_database
+        
+        db = await get_database()
+        
+        # Obtener datos del request
+        puzzle_id = puzzle_data.get("puzzle_id")
+        username = puzzle_data.get("username")
+        correcto = puzzle_data.get("correcto", False)
+        tiempo = puzzle_data.get("tiempo", 0)
+        
+        if not puzzle_id or not username:
+            return {"error": "puzzle_id y username son requeridos"}
+        
+        # Buscar usuario
+        usuario = await db.users.find_one({"username": username})
+        if not usuario:
+            return {"error": "Usuario no encontrado"}
+        
+        # Registrar intento de puzzle
+        puzzle_attempt = {
+            "puzzle_id": puzzle_id,
+            "username": username,
+            "correcto": correcto,
+            "tiempo": tiempo,
+            "fecha": datetime.utcnow()
+        }
+        
+        await db.puzzle_attempts.insert_one(puzzle_attempt)
+        
+        # Actualizar estadísticas del usuario
+        if correcto:
+            await db.users.update_one(
+                {"username": username},
+                {"$inc": {"puzzles_resueltos_correctamente": 1}}
+            )
+        else:
+            await db.users.update_one(
+                {"username": username},
+                {"$inc": {"puzzles_resueltos_incorrectamente": 1}}
+            )
+        
+        return {
+            "success": True,
+            "message": f"Puzzle {'resuelto correctamente' if correcto else 'resuelto incorrectamente'}",
+            "tiempo": tiempo
+        }
+        
+    except Exception as e:
+        logger.error(f"Error registrando resolución de puzzle: {e}")
+        return {"error": "Error interno del servidor"}

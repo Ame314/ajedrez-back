@@ -192,6 +192,9 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
     puzzles_incorrectos = usuario.get("puzzles_resueltos_incorrectamente", 0)
     total_puzzles = puzzles_correctos + puzzles_incorrectos
     
+    # Obtener ELO actual
+    elo_actual = usuario.get("elo", 1200)
+    
     # Calcular logros
     logros = []
     
@@ -202,45 +205,86 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
         "earned": total_partidas > 0
     })
     
+    # Primera victoria
+    logros.append({
+        "name": "Primera Victoria",
+        "description": "Gana tu primera partida",
+        "earned": victorias > 0
+    })
+    
     # Puzzle Master
     logros.append({
-        "name": "Puzzle Master", 
-        "description": "Resuelve 10 puzzles",
-        "earned": puzzles_correctos >= 10
+        "name": "Aprendiz de Puzzles", 
+        "description": "Resuelve 5 puzzles",
+        "earned": puzzles_correctos >= 5
     })
     
     # Estratega
     logros.append({
         "name": "Estratega",
-        "description": "Gana 5 partidas consecutivas", 
+        "description": "Gana 5 partidas", 
         "earned": victorias >= 5
-    })
-    
-    # Veterano
-    logros.append({
-        "name": "Veterano",
-        "description": "Juega 50 partidas",
-        "earned": total_partidas >= 50
     })
     
     # Maestro de Puzzles
     logros.append({
         "name": "Maestro de Puzzles",
-        "description": "Resuelve 100 puzzles correctamente",
-        "earned": puzzles_correctos >= 100
+        "description": "Resuelve 25 puzzles correctamente",
+        "earned": puzzles_correctos >= 25
+    })
+    
+    # Veterano
+    logros.append({
+        "name": "Veterano",
+        "description": "Juega 20 partidas",
+        "earned": total_partidas >= 20
     })
     
     # Invencible
     logros.append({
-        "name": "Invencible",
-        "description": "Gana 20 partidas",
-        "earned": victorias >= 20
+        "name": "Campeón",
+        "description": "Gana 10 partidas",
+        "earned": victorias >= 10
+    })
+    
+    # Perfeccionista
+    logros.append({
+        "name": "Perfeccionista",
+        "description": "Resuelve 50 puzzles correctamente",
+        "earned": puzzles_correctos >= 50
+    })
+    
+    # Persistente
+    logros.append({
+        "name": "Persistente",
+        "description": "Juega 50 partidas",
+        "earned": total_partidas >= 50
+    })
+    
+    # Leyenda
+    logros.append({
+        "name": "Leyenda",
+        "description": "Alcanza 1600 ELO",
+        "earned": elo_actual >= 1600
+    })
+    
+    # Gran Maestro
+    logros.append({
+        "name": "Gran Maestro",
+        "description": "Alcanza 1800 ELO",
+        "earned": elo_actual >= 1800
+    })
+    
+    # Imparable
+    logros.append({
+        "name": "Imparable",
+        "description": "Gana 25 partidas",
+        "earned": victorias >= 25
     })
     
     # Obtener historial reciente de rating (últimas 10 partidas)
-    partidas_recientes = sorted(partidas, key=lambda x: x.get("timestamp", 0), reverse=True)[:10]
+    partidas_recientes = sorted(partidas, key=lambda x: x.get("date_played", datetime.min) if x.get("date_played") else datetime.min, reverse=True)[:10]
     historial_rating = []
-    elo_actual = usuario.get("elo", 1200)
     
     for i, partida in enumerate(reversed(partidas_recientes)):
         # Simular cambios de ELO basado en resultados
@@ -280,7 +324,7 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
             "oponente": p["black_player"] if p["white_player"] == username else p["white_player"],
             "resultado": "Victoria" if p.get("winner") == username else "Derrota" if p.get("winner") and p.get("winner") != "draw" else "Tablas",
             "color": "Blancas" if p["white_player"] == username else "Negras",
-            "fecha": p.get("timestamp", "")
+            "fecha": p.get("date_played", "").strftime("%d/%m/%Y") if p.get("date_played") else "Sin fecha"
         } for p in partidas_recientes[:5]]
     }
 
