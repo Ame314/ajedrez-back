@@ -11,23 +11,8 @@ async def get_puzzles_by_category(category_id: str) -> List[Dict[str, Any]]:
     puzzle_collection = db["puzzles"]
     
     try:
-        # Determinar el rango de rating según la categoría
-        rating_ranges = {
-            "daily": {"min": 800, "max": 2500},  # Rango amplio para puzzle diario
-            "easiest": {"min": 800, "max": 1200},
-            "normal": {"min": 1200, "max": 1800},
-            "hardest": {"min": 1800, "max": 2500}
-        }
-        
-        rating_range = rating_ranges.get(category_id, {"min": 800, "max": 2500})
-        
-        # Buscar puzzles en el rango de rating
-        query = {
-            "rating": {
-                "$gte": rating_range["min"], 
-                "$lte": rating_range["max"]
-            }
-        }
+        # Buscar puzzles por categoría
+        query = {"category": category_id}
         
         # Obtener puzzles de la base de datos
         puzzles_cursor = puzzle_collection.find(query).limit(20)

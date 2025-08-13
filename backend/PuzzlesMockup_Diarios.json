@@ -1,0 +1,42 @@
+{
+    "game": {
+        "id": "ZPXQ58WP",
+        "perf": {
+            "key": "rapid",
+            "name": "Rapid"
+        },
+        "rated": true,
+        "players": [
+            {
+                "name": "martink45",
+                "id": "martink45",
+                "color": "white",
+                "rating": 1640
+            },
+            {
+                "name": "ZloMM",
+                "id": "zlomm",
+                "color": "black",
+                "rating": 1721
+            }
+        ],
+        "pgn": "e4 g6 a3 Bg7 Nc3 e6 Bc4 Ne7 d3 b6 Bg5 Bb7 Bxe7 Qxe7 Nge2 O-O O-O a6 f4 b5 Ba2 d6 Rb1 Nd7 Ng3 c6 f5 exf5 exf5 d5 fxg6 fxg6 Nce2 Rxf1+ Qxf1 Rf8 Qd1 Bc8 Qd2 Nf6 Rf1 Kh8 Nd4 Qd6 Qc3 c5 Nf3 Ng4 Qd2 d4 Ng5 Rxf1+ Kxf1",
+        "clock": "5+6"
+    },
+    "puzzle": {
+        "id": "a4JHj",
+        "rating": 1883,
+        "plays": 33463,
+        "solution": [
+            "g4h2",
+            "f1g1",
+            "d6g3"
+        ],
+        "themes": [
+            "middlegame",
+            "crushing",
+            "short"
+        ],
+        "initialPly": 52
+    }
+}
