@@ -20,6 +20,12 @@ class ConnectionManager:
         self.player_elos: Dict[str, int] = {}
         # Mapping de usuario a game_id
         self.user_to_game: Dict[str, str] = {}
+        # Referencia a la aplicación FastAPI para acceder a la base de datos
+        self.app = None
+    
+    def set_app(self, app):
+        """Establece la referencia a la aplicación FastAPI"""
+        self.app = app
 
     async def connect(self, websocket: WebSocket, username: str):
         await websocket.accept()
@@ -39,7 +45,12 @@ class ConnectionManager:
         """Guarda una partida terminada en la base de datos y actualiza estadísticas"""
         try:
             from models.game import Game
-            from config import db
+            
+            if not self.app:
+                print("Error: No hay referencia a la aplicación FastAPI")
+                return False
+                
+            db = self.app.state.db
             
             # Buscar usuarios
             white = await db.users.find_one({"username": game_data["white_player"]})

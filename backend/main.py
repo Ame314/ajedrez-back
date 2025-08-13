@@ -38,6 +38,10 @@ async def startup_db_client():
             app.state.db = client[DATABASE_NAME]
             print(f"✅ Conexión exitosa a MongoDB - Base de datos: {DATABASE_NAME}")
             
+            # Configurar el websocket manager con la referencia a la app
+            from utils.websocket_manager import manager
+            manager.set_app(app)
+            
             # Inicializar el scheduler de puzzles (temporalmente deshabilitado)
             # try:
             #     await puzzle_scheduler.start()
