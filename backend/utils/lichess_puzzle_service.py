@@ -1,11 +1,20 @@
 import httpx
 import asyncio
 import random
+import os
 from typing import List, Optional
-from models.puzzle_model import PuzzleResponse, PuzzleDifficulty
+from enum import Enum
 import logging
+import chess
+import chess.pgn
+from io import StringIO
 
 logger = logging.getLogger(__name__)
+
+class PuzzleDifficulty(Enum):
+    EASIEST = "easiest"
+    NORMAL = "normal"
+    HARDEST = "hardest"
 
 class LichessPuzzleService:
     """Servicio para obtener puzzles de la API de Lichess"""
@@ -13,13 +22,18 @@ class LichessPuzzleService:
     def __init__(self):
         self.base_url = "https://lichess.org/api/puzzle"
         self.daily_url = "https://lichess.org/api/puzzle/daily"
+        self.token = os.getenv("LICHESS_TOKEN")
         self.rate_limit_delay = 1  # 1 segundo entre requests
         
     async def _make_request(self, url: str) -> Optional[dict]:
         """Hace una request a la API de Lichess con rate limiting"""
         try:
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+                "Accept": "application/json"
+            }
             async with httpx.AsyncClient() as client:
-                response = await client.get(url)
+                response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 await asyncio.sleep(self.rate_limit_delay)
                 return response.json()
@@ -32,23 +46,56 @@ class LichessPuzzleService:
         try:
             data = await self._make_request(self.daily_url)
             if data:
-                # Procesamos la respuesta para obtener los datos necesarios
                 puzzle_data = data.get("puzzle", {})
                 game_data = data.get("game", {})
+                
+                # Extraer FEN desde PGN
+                pgn_string = game_data.get("pgn", "")
+                initial_ply = puzzle_data.get("initialPly", 0)
+                
+                fen = self._extract_fen_from_pgn(pgn_string, initial_ply)
                 
                 return {
                     "puzzle_id": puzzle_data.get("id"),
                     "rating": puzzle_data.get("rating", 1500),
                     "solution": puzzle_data.get("solution", []),
-                    "fen": puzzle_data.get("fen", ""),
-                    "moves": puzzle_data.get("moves", []),
+                    "fen": fen,
+                    "moves": [],  # Los moves iniciales no son necesarios para el puzzle
                     "themes": puzzle_data.get("themes", []),
-                    "game_url": game_data.get("url", "")
+                    "game_url": game_data.get("url", ""),
+                    "pgn": pgn_string,
+                    "initial_ply": initial_ply
                 }
             return None
         except Exception as e:
             logger.error(f"Error obteniendo puzzle diario: {e}")
             return None
+    
+    def _extract_fen_from_pgn(self, pgn_string: str, initial_ply: int) -> str:
+        """Extrae la FEN desde un PGN en el ply específico"""
+        try:
+            # Crear un juego desde el PGN
+            pgn_io = StringIO(pgn_string)
+            game = chess.pgn.read_game(pgn_io)
+            
+            if not game:
+                return chess.STARTING_FEN
+            
+            # Avanzar hasta el ply inicial del puzzle
+            board = game.board()
+            move_count = 0
+            
+            for move in game.mainline_moves():
+                if move_count >= initial_ply:
+                    break
+                board.push(move)
+                move_count += 1
+            
+            return board.fen()
+            
+        except Exception as e:
+            logger.error(f"Error extrayendo FEN del PGN: {e}")
+            return chess.STARTING_FEN
     
     async def get_puzzle_by_difficulty(self, difficulty: PuzzleDifficulty) -> Optional[dict]:
         """Obtiene un puzzle según la dificultad especificada"""

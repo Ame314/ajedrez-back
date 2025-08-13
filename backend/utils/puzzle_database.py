@@ -1,5 +1,5 @@
 from dependencies import get_database
-from models.puzzle_model import PuzzleModel
+from models.puzzle import PuzzleRequest
 from typing import List, Dict, Any
 import random
 
@@ -7,7 +7,7 @@ async def get_puzzles_by_category(category_id: str) -> List[Dict[str, Any]]:
     """
     Obtiene puzzles de una categoría específica
     """
-    db = get_database()
+    db = await get_database()
     puzzle_collection = db["puzzles"]
     
     try:
