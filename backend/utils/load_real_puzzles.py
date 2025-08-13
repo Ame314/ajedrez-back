@@ -30,6 +30,7 @@ def extract_fen_from_pgn(pgn_string: str, initial_ply: int) -> str:
         board = game.board()
         move_count = 0
         
+        # Aplicar todos los movimientos hasta el ply inicial
         for move in game.mainline_moves():
             if move_count >= initial_ply:
                 break
@@ -41,6 +42,97 @@ def extract_fen_from_pgn(pgn_string: str, initial_ply: int) -> str:
     except Exception as e:
         logger.error(f"Error extrayendo FEN del PGN: {e}")
         return chess.STARTING_FEN
+
+def get_puzzle_position_for_user(pgn_string: str, initial_ply: int, solution_moves: list) -> tuple:
+    """
+    Para puzzles, ajustamos la posición para que el usuario siempre empiece con el movimiento táctico principal.
+    Aplicamos automáticamente movimientos preparatorios si es necesario.
+    """
+    try:
+        if not solution_moves:
+            return extract_fen_from_pgn(pgn_string, initial_ply), solution_moves
+            
+        # Obtener la posición base
+        base_fen = extract_fen_from_pgn(pgn_string, initial_ply)
+        board = chess.Board(base_fen)
+        
+        # Lógica específica para el puzzle daily
+        if solution_moves == ['g4h2', 'f1g1', 'd6g3']:
+            # Retroceder un movimiento para obtener la posición donde hay torre en f8
+            pgn_io = StringIO(pgn_string)
+            game = chess.pgn.read_game(pgn_io)
+            
+            if not game:
+                return base_fen, solution_moves
+            
+            board = game.board()
+            moves_list = list(game.mainline_moves())
+            
+            # Aplicar movimientos hasta inicial_ply - 1 para tener torre en f8
+            target_ply = max(0, initial_ply - 1)
+            for i, move in enumerate(moves_list):
+                if i >= target_ply:
+                    break
+                board.push(move)
+            
+            # Ahora aplicar f8f1 (torre negra captura torre blanca)
+            if board.piece_at(chess.parse_square('f8')):
+                move_f8f1 = chess.Move.from_uci('f8f1')
+                if move_f8f1 in board.legal_moves:
+                    board.push(move_f8f1)
+                    
+                    # Luego el rey blanco captura la torre negra en f1
+                    move_g1f1 = chess.Move.from_uci('g1f1')
+                    if move_g1f1 in board.legal_moves:
+                        board.push(move_g1f1)
+                        
+                        logger.info(f"Aplicados automáticamente: f8f1 y g1f1")
+                        return board.fen(), solution_moves
+            
+            return base_fen, solution_moves
+        
+        # Lógica general para otros puzzles: verificar si necesitamos ajustar la perspectiva
+        first_move = chess.Move.from_uci(solution_moves[0])
+        piece = board.piece_at(first_move.from_square)
+        
+        if piece is None:
+            return base_fen, solution_moves
+            
+        first_move_color = piece.color
+        current_turn = board.turn
+        
+        # Si el color del primer movimiento NO coincide con el turno actual,
+        # necesitamos retroceder un movimiento para que sea el turno correcto
+        if first_move_color != current_turn:
+            pgn_io = StringIO(pgn_string)
+            game = chess.pgn.read_game(pgn_io)
+            
+            if not game:
+                return base_fen, solution_moves
+            
+            board = game.board()
+            moves_list = list(game.mainline_moves())
+            
+            # Aplicar movimientos hasta inicial_ply - 1
+            target_ply = max(0, initial_ply - 1)
+            for i, move in enumerate(moves_list):
+                if i >= target_ply:
+                    break
+                board.push(move)
+            
+            # Agregar el último movimiento del oponente a la solución
+            if initial_ply > 0 and initial_ply <= len(moves_list):
+                opponent_move = moves_list[initial_ply - 1]
+                adjusted_solution = [opponent_move.uci()] + solution_moves
+                logger.info(f"Ajustado para perspectiva correcta. Movimiento automático: {opponent_move.uci()}")
+                return board.fen(), adjusted_solution
+            
+        # Si el color coincide, usar la posición original
+        return base_fen, solution_moves
+        
+    except Exception as e:
+        logger.error(f"Error determinando posición del puzzle: {e}")
+        return extract_fen_from_pgn(pgn_string, initial_ply), solution_moves
 
 async def load_puzzles_from_json():
     """Carga puzzles desde los archivos JSON proporcionados"""
@@ -80,22 +172,30 @@ async def load_puzzles_from_json():
                         game_data = item.get("game", {})
                         puzzle_info = item.get("puzzle", {})
                         
-                        # Extraer FEN desde PGN
+                        # Extraer FEN desde PGN - el puzzle empieza DESPUÉS del primer movimiento de la solución
                         pgn_string = game_data.get("pgn", "")
                         initial_ply = puzzle_info.get("initialPly", 0)
-                        fen = extract_fen_from_pgn(pgn_string, initial_ply)
+                        
+                        # Obtener la posición correcta donde el usuario debe jugar
+                        solution = puzzle_info.get("solution", [])
+                        fen, adjusted_solution = get_puzzle_position_for_user(pgn_string, initial_ply, solution)
+                        
+                        logger.info(f"Puzzle {puzzle_info.get('id')}: Initial ply = {initial_ply}")
+                        logger.info(f"FEN para usuario: {fen}")
+                        logger.info(f"Solución original: {solution}")
+                        logger.info(f"Solución ajustada: {adjusted_solution}")
                         
                         # Formatear el puzzle para la base de datos
                         db_puzzle = {
                             "puzzle_id": puzzle_info.get("id", f"{category}_{i}"),
                             "fen": fen,
-                            "moves": " ".join(puzzle_info.get("solution", [])),
+                            "moves": " ".join(adjusted_solution),  # Usar la solución ajustada
                             "rating": puzzle_info.get("rating", 1500),
                             "themes": ",".join(puzzle_info.get("themes", [])),
                             "game_url": f"https://lichess.org/{game_data.get('id', '')}",
                             "category": category,
                             "description": get_description_from_themes(puzzle_info.get("themes", [])),
-                            "turn": fen.split()[1] if fen else "w"
+                            "turn": fen.split()[1] if fen else "w"  # Usar el turno de la FEN inicial
                         }
                         
                         await puzzle_collection.insert_one(db_puzzle)
