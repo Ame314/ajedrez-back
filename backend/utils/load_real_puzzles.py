@@ -45,8 +45,8 @@ def extract_fen_from_pgn(pgn_string: str, initial_ply: int) -> str:
 
 def get_puzzle_position_for_user(pgn_string: str, initial_ply: int, solution_moves: list, puzzle_id: str) -> tuple:
     """
-    Para puzzles, aplicamos la lógica exitosa del puzzle daily a TODOS los puzzles:
-    retroceder un movimiento y luego aplicar el primer movimiento automáticamente.
+    Para puzzles, determinamos la posición correcta analizando quién debe mover.
+    El usuario siempre debe hacer el primer movimiento de la solución.
     """
     try:
         if not solution_moves:
@@ -83,42 +83,67 @@ def get_puzzle_position_for_user(pgn_string: str, initial_ply: int, solution_mov
             logger.info(f"Puzzle {puzzle_id}: Aplicados automáticamente: {auto_moves}")
             return board.fen(), solution_moves
         
-        # Para TODOS los demás puzzles: aplicar la misma lógica exitosa
-        # Retroceder un movimiento y luego aplicar el primer movimiento de la solución
-        pgn_io = StringIO(pgn_string)
-        game = chess.pgn.read_game(pgn_io)
+        # Para todos los demás puzzles: verificar la situación actual
+        base_fen = extract_fen_from_pgn(pgn_string, initial_ply)
+        board = chess.Board(base_fen)
         
-        if not game:
-            return extract_fen_from_pgn(pgn_string, initial_ply), solution_moves
+        # Verificar si el primer movimiento de la solución es legal en la posición actual
+        first_move = chess.Move.from_uci(solution_moves[0])
+        piece = board.piece_at(first_move.from_square)
         
-        board = game.board()
-        moves_list = list(game.mainline_moves())
+        if piece is None:
+            logger.warning(f"Puzzle {puzzle_id}: No hay pieza en {first_move.from_square}")
+            return base_fen, solution_moves
+            
+        first_move_color = piece.color
+        current_turn = board.turn
         
-        # Aplicar movimientos hasta inicial_ply - 1 para retroceder
-        target_ply = max(0, initial_ply - 1)
-        for i, move in enumerate(moves_list):
-            if i >= target_ply:
-                break
-            board.push(move)
+        logger.info(f"Puzzle {puzzle_id}: Primer movimiento {solution_moves[0]} es de {'blancas' if first_move_color else 'negras'}")
+        logger.info(f"Puzzle {puzzle_id}: Turno actual es de {'blancas' if current_turn else 'negras'}")
         
-        # Ahora aplicar el primer movimiento de la solución automáticamente
-        if solution_moves:
-            try:
-                first_move = chess.Move.from_uci(solution_moves[0])
-                if first_move in board.legal_moves:
-                    board.push(first_move)
-                    # La solución ajustada empieza desde el segundo movimiento
-                    adjusted_solution = solution_moves[1:]
-                    logger.info(f"Puzzle {puzzle_id}: Aplicado automáticamente: {solution_moves[0]}")
-                    return board.fen(), adjusted_solution
+        # Caso 1: El primer movimiento de la solución coincide con el turno actual
+        # El usuario puede hacer directamente el primer movimiento
+        if first_move_color == current_turn:
+            if first_move in board.legal_moves:
+                logger.info(f"Puzzle {puzzle_id}: Usuario puede hacer directamente: {solution_moves[0]}")
+                return base_fen, solution_moves
+            else:
+                logger.warning(f"Puzzle {puzzle_id}: Movimiento {solution_moves[0]} no es legal")
+                return base_fen, solution_moves
+        
+        # Caso 2: El primer movimiento de la solución NO coincide con el turno actual
+        # Necesitamos que el oponente haga un movimiento automático primero
+        else:
+            # Buscar en el PGN cuál fue el último movimiento del oponente
+            pgn_io = StringIO(pgn_string)
+            game = chess.pgn.read_game(pgn_io)
+            
+            if not game:
+                return base_fen, solution_moves
+            
+            moves_list = list(game.mainline_moves())
+            
+            # El movimiento que necesitamos hacer automáticamente es el que está en initial_ply
+            if initial_ply < len(moves_list):
+                auto_move = moves_list[initial_ply]
+                
+                # Aplicar el movimiento automático
+                if auto_move in board.legal_moves:
+                    board.push(auto_move)
+                    logger.info(f"Puzzle {puzzle_id}: Aplicado automáticamente: {auto_move.uci()}")
+                    
+                    # Verificar que ahora el usuario puede hacer su movimiento
+                    if first_move in board.legal_moves:
+                        return board.fen(), solution_moves
+                    else:
+                        logger.warning(f"Puzzle {puzzle_id}: Después del movimiento automático, {solution_moves[0]} sigue sin ser legal")
+                        return board.fen(), solution_moves
                 else:
-                    logger.warning(f"Puzzle {puzzle_id}: Movimiento {solution_moves[0]} no es legal después de retroceder")
-            except Exception as e:
-                logger.error(f"Puzzle {puzzle_id}: Error aplicando {solution_moves[0]}: {e}")
-        
-        # Si no se pudo aplicar, usar posición retrocedida
-        logger.info(f"Puzzle {puzzle_id}: Usando posición retrocedida sin movimiento automático")
-        return board.fen(), solution_moves
+                    logger.warning(f"Puzzle {puzzle_id}: Movimiento automático {auto_move.uci()} no es legal")
+                    return base_fen, solution_moves
+            else:
+                logger.warning(f"Puzzle {puzzle_id}: No hay movimiento automático disponible")
+                return base_fen, solution_moves
         
     except Exception as e:
         logger.error(f"Error determinando posición del puzzle {puzzle_id}: {e}")
