@@ -305,7 +305,7 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
         })
     
     # Obtener partidas recientes (TODAS las partidas, incluyendo IA)
-    partidas_recientes = sorted(partidas, key=lambda x: x.get("date_played", datetime.min) if x.get("date_played") else datetime.min, reverse=True)[:5]
+    partidas_recientes = sorted(partidas, key=lambda x: x.get("date_played", datetime.min) if x.get("date_played") else datetime.min, reverse=True)
     
     return {
         "usuario": {
