@@ -46,6 +46,9 @@ class ConnectionManager:
         try:
             from models.game import Game
             
+            print(f"=== GUARDANDO PARTIDA TERMINADA ===")
+            print(f"Game data: {game_data}")
+            
             if not self.app:
                 print("Error: No hay referencia a la aplicación FastAPI")
                 return False
@@ -60,6 +63,8 @@ class ConnectionManager:
                 print(f"Error: Usuario no encontrado - white: {white}, black: {black}")
                 return False
 
+            print(f"Usuarios encontrados - White: {white['username']} (ELO: {white['elo']}), Black: {black['username']} (ELO: {black['elo']})")
+
             # Calcular resultado numérico para blancos
             resultado_blancos = {"1-0": 1.0, "0-1": 0.0, "1/2-1/2": 0.5}.get(game_data["result"], 0.5)
 
@@ -68,44 +73,73 @@ class ConnectionManager:
             nuevo_elo_blancos = calcular_nuevo_elo(white["elo"], black["elo"], resultado_blancos)
             nuevo_elo_negras = calcular_nuevo_elo(black["elo"], white["elo"], 1 - resultado_blancos)
 
+            print(f"Movimientos del juego: {game_data['moves']}")
+            
+            # Preparar movimientos en formato string
+            moves_san = []
+            for move in game_data["moves"]:
+                if isinstance(move, dict) and "san" in move:
+                    moves_san.append(move["san"])
+                elif isinstance(move, str):
+                    moves_san.append(move)
+                else:
+                    print(f"Advertencia: Movimiento en formato inesperado: {move}")
+                    moves_san.append(str(move))
+
+            print(f"Movimientos procesados: {moves_san}")
+
             # Preparar datos de la partida
             partida_dict = {
                 "white_player": game_data["white_player"],
                 "black_player": game_data["black_player"],
                 "white_elo": white["elo"],
                 "black_elo": black["elo"],
-                "moves": [move["san"] for move in game_data["moves"]],
+                "moves": moves_san,
                 "result_code": game_data["result"],
                 "winner": game_data["winner"],
                 "date_played": game_data["created_at"],
                 "reason": game_data.get("reason", "normal")
             }
 
+            print(f"Datos de partida a guardar: {partida_dict}")
+
             # Guardar partida en la base de datos
             result = await db.games.insert_one(partida_dict)
+            print(f"Partida guardada en DB con ID: {result.inserted_id}")
 
-            # Actualizar estadísticas de usuarios
-            await db.users.update_one(
+            # Calcular estadísticas para jugador blanco
+            white_stats = {
+                "games_played": 1,
+                "games_won": 1 if game_data["result"] == "1-0" else 0,
+                "games_lost": 1 if game_data["result"] == "0-1" else 0,
+                "games_drawn": 1 if game_data["result"] == "1/2-1/2" else 0
+            }
+            print(f"Estadísticas calculadas para {game_data['white_player']}: {white_stats}")
+
+            # Actualizar estadísticas de jugador blanco
+            white_update_result = await db.users.update_one(
                 {"username": game_data["white_player"]},
                 {"$set": {"elo": nuevo_elo_blancos},
-                 "$inc": {
-                     "games_played": 1,
-                     "games_won": 1 if game_data["result"] == "1-0" else 0,
-                     "games_lost": 1 if game_data["result"] == "0-1" else 0,
-                     "games_drawn": 1 if game_data["result"] == "1/2-1/2" else 0
-                 }}
+                 "$inc": white_stats}
             )
+            print(f"Actualización jugador blanco: modificados={white_update_result.modified_count}")
 
-            await db.users.update_one(
+            # Calcular estadísticas para jugador negro
+            black_stats = {
+                "games_played": 1,
+                "games_won": 1 if game_data["result"] == "0-1" else 0,
+                "games_lost": 1 if game_data["result"] == "1-0" else 0,
+                "games_drawn": 1 if game_data["result"] == "1/2-1/2" else 0
+            }
+            print(f"Estadísticas calculadas para {game_data['black_player']}: {black_stats}")
+
+            # Actualizar estadísticas de jugador negro
+            black_update_result = await db.users.update_one(
                 {"username": game_data["black_player"]},
                 {"$set": {"elo": nuevo_elo_negras},
-                 "$inc": {
-                     "games_played": 1,
-                     "games_won": 1 if game_data["result"] == "0-1" else 0,
-                     "games_lost": 1 if game_data["result"] == "1-0" else 0,
-                     "games_drawn": 1 if game_data["result"] == "1/2-1/2" else 0
-                 }}
+                 "$inc": black_stats}
             )
+            print(f"Actualización jugador negro: modificados={black_update_result.modified_count}")
 
             print(f"Partida guardada exitosamente: ID {result.inserted_id}")
             print(f"Nuevos ELOs - {game_data['white_player']}: {nuevo_elo_blancos}, {game_data['black_player']}: {nuevo_elo_negras}")
@@ -433,19 +467,24 @@ class ConnectionManager:
         
         # Verificar si la partida ha terminado (jaque mate, empate, etc.)
         game_status = move_data.get("game_status", "active")
+        print(f"Estado del juego detectado: {game_status}")
+        
         if game_status in ["checkmate", "stalemate", "draw"]:
             game["status"] = "finished"
+            print(f"Partida terminada. Estado: {game_status}")
             
             if game_status == "checkmate":
                 # El jugador que hizo el movimiento da jaque mate
                 game["result"] = "1-0" if player == white_player else "0-1"
                 game["winner"] = player
                 game["reason"] = "checkmate"
+                print(f"Jaque mate por {player}. Resultado: {game['result']}")
             else:
                 # Empate por cualquier motivo
                 game["result"] = "1/2-1/2"
                 game["winner"] = "draw"
                 game["reason"] = "stalemate" if game_status == "stalemate" else "draw"
+                print(f"Empate. Razón: {game['reason']}")
             
             # Notificar final de partida
             await self.send_game_message({
@@ -454,15 +493,19 @@ class ConnectionManager:
                 "winner": game["winner"],
                 "reason": game["reason"]
             }, game_id)
+            print(f"Mensaje de fin de partida enviado a los jugadores")
             
             # Guardar partida automáticamente
-            await self.save_finished_game(game)
+            print(f"Intentando guardar partida terminada...")
+            save_result = await self.save_finished_game(game)
+            print(f"Resultado de guardar partida: {save_result}")
             
             # Limpiar mapeos
             if white_player in self.user_to_game:
                 del self.user_to_game[white_player]
             if black_player in self.user_to_game:
                 del self.user_to_game[black_player]
+            print(f"Mapeos de jugadores limpiados")
             
             return True
         
@@ -520,7 +563,9 @@ class ConnectionManager:
             }, game_id)
             
             # Guardar partida automáticamente
-            await self.save_finished_game(game)
+            print(f"Intentando guardar partida por rendición...")
+            save_result = await self.save_finished_game(game)
+            print(f"Resultado de guardar partida por rendición: {save_result}")
             
             # Limpiar mapeos
             if game["white_player"] in self.user_to_game:
@@ -552,7 +597,9 @@ class ConnectionManager:
             }, game_id)
             
             # Guardar partida automáticamente
-            await self.save_finished_game(game)
+            print(f"Intentando guardar partida por empate mutuo...")
+            save_result = await self.save_finished_game(game)
+            print(f"Resultado de guardar partida por empate mutuo: {save_result}")
             
             # Limpiar mapeos
             if game["white_player"] in self.user_to_game:

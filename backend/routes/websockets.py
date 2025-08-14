@@ -67,7 +67,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                     "to": message.get("to"),
                     "promotion": message.get("promotion"),
                     "san": message.get("san"),
-                    "fen": message.get("fen")
+                    "fen": message.get("fen"),
+                    "game_status": message.get("game_status", "active")
                 }
                 
                 print(f"Movimiento recibido de {username}:")
