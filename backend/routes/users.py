@@ -542,17 +542,6 @@ async def obtener_detalles_estudiante(
     # Obtener progreso de lecciones
     lecciones_completadas = len(usuario.get("progreso_lecciones", []))
     
-    # Calcular última conexión (basado en la partida más reciente)
-    ultima_conexion = None
-    if todas_las_partidas:
-        partida_reciente = max(todas_las_partidas, key=lambda x: x.get("timestamp", ""))
-        if partida_reciente.get("timestamp"):
-            try:
-                fecha_partida = datetime.fromisoformat(partida_reciente["timestamp"].replace("Z", "+00:00"))
-                ultima_conexion = fecha_partida.isoformat()
-            except:
-                ultima_conexion = None
-    
     # Obtener fecha de registro usando ObjectId.generation_time
     fecha_registro = None
     try:
@@ -568,24 +557,6 @@ async def obtener_detalles_estudiante(
             except:
                 fecha_registro = None
     
-    # Simular estado de actividad basado en la última conexión
-    estado_actividad = "desconocido"
-    if ultima_conexion:
-        try:
-            fecha_ultima_conexion = datetime.fromisoformat(ultima_conexion.replace("Z", "+00:00"))
-            tiempo_transcurrido = datetime.now(fecha_ultima_conexion.tzinfo) - fecha_ultima_conexion
-            
-            if tiempo_transcurrido.total_seconds() < 300:  # 5 minutos
-                estado_actividad = "en línea"
-            elif tiempo_transcurrido.total_seconds() < 3600:  # 1 hora
-                estado_actividad = "activo"
-            elif tiempo_transcurrido.total_seconds() < 86400:  # 1 día
-                estado_actividad = "inactivo"
-            else:
-                estado_actividad = "ausente"
-        except:
-            estado_actividad = "desconocido"
-    
     return {
         "partidas_jugadas": partidas_jugadas,
         "partidas_ganadas": partidas_ganadas,
@@ -594,8 +565,6 @@ async def obtener_detalles_estudiante(
         "puzzles_resueltos": puzzles_resueltos,
         "lecciones_completadas": lecciones_completadas,
         "fecha_registro": fecha_registro,
-        "ultima_conexion": ultima_conexion,
-        "estado_actividad": estado_actividad,
         "elo_actual": usuario.get("elo", 1200),
         "email": usuario.get("email", ""),
         "username": usuario.get("username", "")
