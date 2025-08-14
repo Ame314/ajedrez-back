@@ -174,14 +174,17 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
         ]
     }).to_list(None)
     
-    # Calcular estadísticas de partidas
-    total_partidas = len(partidas)
-    victorias = sum(1 for p in partidas if p.get("winner") == username)
-    derrotas = sum(1 for p in partidas if p.get("winner") and p.get("winner") != username and p.get("winner") != "draw")
-    tablas = sum(1 for p in partidas if p.get("winner") == "draw")
+    # Separar partidas contra IA de partidas contra humanos
+    partidas_humanos = [p for p in partidas if not p.get("vs_ai", False)]
+    
+    # Calcular estadísticas solo de partidas contra humanos
+    total_partidas = len(partidas_humanos)
+    victorias = sum(1 for p in partidas_humanos if p.get("winner") == username)
+    derrotas = sum(1 for p in partidas_humanos if p.get("winner") and p.get("winner") != username and p.get("winner") != "draw")
+    tablas = sum(1 for p in partidas_humanos if p.get("winner") == "draw")
     winrate = round((victorias / total_partidas * 100), 1) if total_partidas > 0 else 0
     
-    # Calcular tiempo total jugado (estimación basada en partidas)
+    # Calcular tiempo total jugado (estimación basada solo en partidas contra humanos)
     tiempo_estimado_minutos = total_partidas * 15  # Estimamos 15 min por partida
     horas = tiempo_estimado_minutos // 60
     minutos = tiempo_estimado_minutos % 60
@@ -282,12 +285,12 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
         "earned": victorias >= 25
     })
     
-    # Obtener historial reciente de rating (últimas 10 partidas)
-    partidas_recientes = sorted(partidas, key=lambda x: x.get("date_played", datetime.min) if x.get("date_played") else datetime.min, reverse=True)[:10]
+    # Obtener historial reciente de rating (últimas 10 partidas SOLO contra humanos)
+    partidas_humanos_recientes = sorted(partidas_humanos, key=lambda x: x.get("date_played", datetime.min) if x.get("date_played") else datetime.min, reverse=True)[:10]
     historial_rating = []
     
-    for i, partida in enumerate(reversed(partidas_recientes)):
-        # Simular cambios de ELO basado en resultados
+    for i, partida in enumerate(reversed(partidas_humanos_recientes)):
+        # Simular cambios de ELO basado en resultados (solo partidas contra humanos)
         if partida.get("winner") == username:
             cambio = 25
         elif partida.get("winner") == "draw":
@@ -297,9 +300,12 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
             
         elo_en_partida = elo_actual - (cambio * i)
         historial_rating.append({
-            "partida": len(partidas_recientes) - i,
+            "partida": len(partidas_humanos_recientes) - i,
             "elo": max(800, elo_en_partida)  # ELO mínimo de 800
         })
+    
+    # Obtener partidas recientes (TODAS las partidas, incluyendo IA)
+    partidas_recientes = sorted(partidas, key=lambda x: x.get("date_played", datetime.min) if x.get("date_played") else datetime.min, reverse=True)[:5]
     
     return {
         "usuario": {
@@ -325,7 +331,7 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
             "resultado": "Victoria" if p.get("winner") == username else "Derrota" if p.get("winner") and p.get("winner") != "draw" else "Tablas",
             "color": "Blancas" if p["white_player"] == username else "Negras",
             "fecha": p.get("date_played", "").strftime("%d/%m/%Y") if p.get("date_played") else "Sin fecha"
-        } for p in partidas_recientes[:5]]
+        } for p in partidas_recientes]
     }
 
 # ===== ENDPOINTS DEL PANEL DE ADMINISTRADOR/PROFESOR =====

@@ -15,7 +15,10 @@ def calcular_nuevo_elo(rating_a, rating_b, resultado):
 @router.post("/guardar-partida")
 async def save_game(game: Game, request: Request):
     db = request.app.state.db
-    game.date_played = datetime.utcnow()
+    
+    # Asignar fecha si no viene del frontend
+    if game.date_played is None:
+        game.date_played = datetime.utcnow()
 
     # Buscar usuarios (solo buscar el humano si es contra IA)
     if game.vs_ai:
@@ -26,26 +29,18 @@ async def save_game(game: Game, request: Request):
         if not human_user:
             return {"error": f"Jugador {human_player} no existe"}
         
-        # Guardar partida sin actualizar ELO
+        # Guardar partida sin actualizar estadísticas principales
         partida_dict = game.dict()
         partida_dict["white_elo"] = human_user["elo"] if game.white_player != "Stockfish" else 1200
         partida_dict["black_elo"] = human_user["elo"] if game.black_player != "Stockfish" else 1200
         
         result = await db.games.insert_one(partida_dict)
         
-        # Solo actualizar estadísticas de partidas, NO el ELO
-        await db.users.update_one(
-            {"username": human_player},
-            {"$inc": {
-                "games_played": 1,
-                "games_won": 1 if game.winner == human_player else 0,
-                "games_lost": 1 if game.winner == "Stockfish" else 0,
-                "games_drawn": 1 if game.winner == "draw" else 0
-            }}
-        )
+        # NO actualizar ninguna estadística del usuario para partidas contra IA
+        # Solo guardar la partida para que aparezca en "partidas recientes"
         
         return {
-            "mensaje": "Partida contra IA guardada (sin cambio de ELO)",
+            "mensaje": "Partida contra IA guardada (solo para historial)",
             "id": str(result.inserted_id)
         }
     
