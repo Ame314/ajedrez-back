@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from models.game import Game
 from models.live_game import LiveGame, Move
 from datetime import datetime
+from bson import ObjectId
 from utils.websocket_manager import manager
 
 router = APIRouter()
@@ -184,3 +185,30 @@ async def finalizar_partida_vivo(request: Request, game_id: str):
         "nuevo_elo_blancos": nuevo_elo_blancos,
         "nuevo_elo_negras": nuevo_elo_negras
     }
+
+
+@router.get("/games/{game_id}")
+async def get_game(game_id: str, request: Request):
+    """Obtener datos completos de una partida específica para el replay"""
+    db = request.app.state.db
+    
+    # Intentar buscar por ObjectId primero
+    try:
+        oid = ObjectId(game_id)
+        partida = await db.games.find_one({"_id": oid})
+    except Exception:
+        # Si falla, intentar buscar como string
+        partida = await db.games.find_one({"_id": game_id})
+    
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    
+    # Convertir ObjectId a string para serialización
+    partida["_id"] = str(partida["_id"])
+    
+    # Asegurar que los movimientos estén en formato string
+    if partida.get("moves"):
+        if isinstance(partida["moves"], list):
+            partida["moves"] = " ".join(str(move) for move in partida["moves"])
+    
+    return partida

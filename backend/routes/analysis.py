@@ -40,6 +40,109 @@ DIFFICULTY_SETTINGS = {
 }
 
 
+@router.get("/game/{game_id}/move/{move_index}")
+async def analyze_game_move(game_id: str, move_index: int, request: Request):
+    """Analizar un movimiento específico de una partida guardada"""
+    # Verificar que Stockfish esté disponible
+    stockfish = get_stockfish()
+    if stockfish is None:
+        raise HTTPException(status_code=503, detail="Motor de análisis no disponible. Stockfish no está instalado.")
+    
+    db = request.app.state.db
+
+    # Buscar la partida
+    partida = None
+    try:
+        oid = ObjectId(game_id)
+        partida = await db.games.find_one({"_id": oid})
+    except Exception as e:
+        print(f"Error al crear ObjectId: {e}")
+
+    if not partida:
+        # Intentar buscar con string por si acaso
+        partida = await db.games.find_one({"_id": game_id})
+
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+
+    movimientos_raw = partida.get("moves") or partida.get("movimientos")
+    if not movimientos_raw:
+        raise HTTPException(status_code=400, detail="La partida no tiene movimientos")
+
+    # Parsear movimientos
+    if isinstance(movimientos_raw, str):
+        movimientos = movimientos_raw.strip().split(' ')
+    elif isinstance(movimientos_raw, list):
+        if len(movimientos_raw) == 1 and isinstance(movimientos_raw[0], str):
+            movimientos = movimientos_raw[0].strip().split(' ')
+        else:
+            movimientos = [str(m).strip("'\"") for m in movimientos_raw]
+    else:
+        raise HTTPException(status_code=400, detail="Formato de movimientos no válido")
+
+    # Filtrar movimientos vacíos
+    movimientos = [m for m in movimientos if m.strip()]
+
+    if move_index < 0 or move_index > len(movimientos):
+        raise HTTPException(status_code=400, detail="Índice de movimiento fuera de rango")
+
+    try:
+        # Convertir los movimientos hasta el índice especificado a UCI
+        movimientos_hasta_indice = movimientos[:move_index]
+        movimientos_uci = convertir_a_uci(movimientos_hasta_indice)
+        
+        # Configurar posición en Stockfish
+        stockfish.set_position(movimientos_uci)
+        stockfish.set_depth(15)  # Profundidad para análisis detallado
+        
+        # Obtener evaluación de la posición
+        evaluation = stockfish.get_evaluation()
+        
+        # Obtener el mejor movimiento
+        best_move = stockfish.get_best_move()
+        
+        # Obtener línea principal (hasta 10 movimientos)
+        principal_variation = []
+        if best_move:
+            try:
+                # Hacer una copia temporal para obtener la línea principal
+                temp_moves = movimientos_uci + [best_move]
+                stockfish.set_position(temp_moves)
+                
+                # Obtener algunos movimientos de la línea principal
+                for _ in range(5):  # Hasta 5 movimientos más
+                    next_move = stockfish.get_best_move()
+                    if next_move:
+                        principal_variation.append(next_move)
+                        temp_moves.append(next_move)
+                        stockfish.set_position(temp_moves)
+                    else:
+                        break
+                        
+                # Restaurar posición original
+                stockfish.set_position(movimientos_uci)
+            except:
+                pass
+        
+        # Obtener las mejores jugadas alternativas
+        top_moves = stockfish.get_top_moves(3)
+        
+        return {
+            "move_index": move_index,
+            "position_fen": stockfish.get_fen_position(),
+            "evaluation": evaluation,
+            "best_move": best_move,
+            "pv": principal_variation,
+            "top_moves": top_moves,
+            "depth": 15,
+            "analysis_complete": True
+        }
+        
+    except Exception as e:
+        print(f"Error analizando movimiento: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al analizar el movimiento: {str(e)}")
+
+
 @router.get("/analisis/{partida_id}")
 async def analizar_partida(partida_id: str, request: Request):
     # Verificar que Stockfish esté disponible
