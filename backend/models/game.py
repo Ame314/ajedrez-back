@@ -13,3 +13,4 @@ class Game(BaseModel):
     winner: str  # Puede ser el nombre del ganador o "draw"
     date_played: Optional[datetime] = None
     vs_ai: Optional[bool] = False  # Indica si es una partida contra la IA
+    ai_difficulty: Optional[str] = None  # Dificultad de la IA: principiante, intermedio, experto, gran_maestro

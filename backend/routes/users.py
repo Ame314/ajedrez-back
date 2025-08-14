@@ -285,6 +285,52 @@ async def obtener_estadisticas_usuario(username: str, request: Request):
         "earned": victorias >= 25
     })
     
+    # Obtener partidas contra IA para logros de Stockfish
+    partidas_ia = [p for p in partidas if p.get("vs_ai", False)]
+    
+    # Verificar victorias contra Stockfish por dificultad
+    vencio_principiante = any(
+        p.get("winner") == username and p.get("ai_difficulty") == "principiante"
+        for p in partidas_ia
+    )
+    vencio_intermedio = any(
+        p.get("winner") == username and p.get("ai_difficulty") == "intermedio"
+        for p in partidas_ia
+    )
+    vencio_experto = any(
+        p.get("winner") == username and p.get("ai_difficulty") == "experto"
+        for p in partidas_ia
+    )
+    vencio_gran_maestro = any(
+        p.get("winner") == username and p.get("ai_difficulty") == "gran_maestro"
+        for p in partidas_ia
+    )
+    
+    # Logros de Stockfish
+    logros.append({
+        "name": "Vencedor Principiante",
+        "description": "Vence al bot Stockfish en dificultad principiante",
+        "earned": vencio_principiante
+    })
+    
+    logros.append({
+        "name": "Vencedor Intermedio",
+        "description": "Vence al bot Stockfish en dificultad intermedio",
+        "earned": vencio_intermedio
+    })
+    
+    logros.append({
+        "name": "Vencedor Experto",
+        "description": "Vence al bot Stockfish en dificultad experto",
+        "earned": vencio_experto
+    })
+    
+    logros.append({
+        "name": "Domador de Máquinas",
+        "description": "Vence al bot Stockfish en dificultad gran maestro",
+        "earned": vencio_gran_maestro
+    })
+    
     # Obtener historial reciente de rating (últimas 10 partidas SOLO contra humanos)
     partidas_humanos_recientes = sorted(partidas_humanos, key=lambda x: x.get("date_played", datetime.min) if x.get("date_played") else datetime.min, reverse=True)[:10]
     historial_rating = []
